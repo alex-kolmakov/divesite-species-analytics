@@ -1,0 +1,17 @@
+marine_data_bq:
+  target: local
+  outputs:
+    local:
+      type: bigquery
+      method: service-account
+      project: gbif-412615
+      dataset: marine_data
+      threads: 4 # Must be a value of 1 or greater
+      keyfile: ../secret.json
+    mage:
+      type: bigquery
+      method: service-account
+      project: gbif-412615
+      dataset: marine_data
+      threads: 4 # Must be a value of 1 or greater
+      keyfile: /home/src/secret.json
