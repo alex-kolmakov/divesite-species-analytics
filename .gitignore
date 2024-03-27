@@ -134,6 +134,6 @@ dmypy.json
 marine_data/target/
 marine_data/dbt_packages/
 marine_data/logs/
-
+.file_versions/
 secret.json
 obis.parquet/

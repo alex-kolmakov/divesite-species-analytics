@@ -1,16 +1,8 @@
 
 version: 2
 
-sources:
- - name: invasive_species_source
-   tables:
-     - name: invasive_species_table
-       location: 'gs://marine_data_412615/invasive_species.parquet/*'
-       options:
-         format: parquet
-         allow_jagged_rows: true
-         allow_quoted_newlines: true
-
 models:
-  - name: stg_local_data
-    description: "A starter dbt model"
+  - name: local_occurences
+    description: "Some local fauna"
+  - name: invasive_near_divesites
+    description: "invasive_near_divesites"

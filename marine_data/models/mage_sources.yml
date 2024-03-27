@@ -1,0 +1,14 @@
+sources:
+- description: Dataframes Mage upstream blocks
+  loader: mage
+  name: mage_marine_data
+  schema: marine_data
+  tables:
+  - description: Dataframe for block `store_divesites_gcs` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_divesites_gcs
+    meta:
+      block_uuid: store_divesites_gcs
+      pipeline_uuid: marine_species
+    name: marine_species_store_divesites_gcs
+version: 2

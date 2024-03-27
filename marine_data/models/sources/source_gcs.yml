@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: marine_data
+    database: gbif-412615
+    loader: gcloud storage
+    
+    tables:
+      - name: invasive_species_table
+        external:
+          location: 'gs://marine_data_412615/invasive_species.parquet/*.parquet'
+          options:
+            format: parquet
+
+      - name: divesites_table
+        external:
+          location: 'gs://marine_data_412615/divesites.parquet'
+          options:
+            format: parquet

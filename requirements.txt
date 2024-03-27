@@ -1,0 +1,4 @@
+python-dwca-reader
+pandas
+asyncio
+aiohttp
