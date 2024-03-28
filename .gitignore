@@ -130,7 +130,8 @@ dmypy.json
 
 # VScode
 .DS_Store
-
+.terraform
+.terraform.lock.hcl
 marine_data/target/
 marine_data/dbt_packages/
 marine_data/logs/

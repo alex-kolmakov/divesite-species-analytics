@@ -1,6 +1,43 @@
 blocks:
 - all_upstream_blocks_executed: true
   color: null
+  configuration:
+    file_source:
+      path: data_loaders/obis_download.py
+  downstream_blocks:
+  - store_obis_gcs
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: obis_download
+  retry_config: null
+  status: not_executed
+  timeout: null
+  type: data_loader
+  upstream_blocks: []
+  uuid: obis_download
+- all_upstream_blocks_executed: false
+  color: null
+  configuration:
+    file_source:
+      path: data_exporters/store_obis_gcs.py
+  downstream_blocks:
+  - staging_external_models
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: store_obis_gcs
+  retry_config: null
+  status: not_executed
+  timeout: null
+  type: data_exporter
+  upstream_blocks:
+  - obis_download
+  uuid: store_obis_gcs
+- all_upstream_blocks_executed: true
+  color: null
   configuration: {}
   downstream_blocks:
   - clean_divesites
@@ -99,39 +136,6 @@ blocks:
   upstream_blocks:
   - clean_invasive
   uuid: store_invasive_gcs
-- all_upstream_blocks_executed: true
-  color: null
-  configuration: {}
-  downstream_blocks:
-  - store_obis_gcs
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: python
-  name: obis_download
-  retry_config: null
-  status: executed
-  timeout: null
-  type: data_loader
-  upstream_blocks: []
-  uuid: obis_download
-- all_upstream_blocks_executed: true
-  color: null
-  configuration: {}
-  downstream_blocks:
-  - staging_external_models
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: python
-  name: store_obis_gcs
-  retry_config: null
-  status: updated
-  timeout: null
-  type: data_exporter
-  upstream_blocks:
-  - obis_download
-  uuid: store_obis_gcs
 - all_upstream_blocks_executed: false
   color: null
   configuration:
@@ -206,7 +210,7 @@ settings:
 spark_config: {}
 tags: []
 type: python
-updated_at: '2024-03-28 14:23:12'
+updated_at: '2024-03-28T14:23:12+00:00'
 uuid: marine_species
 variables_dir: /home/src/mage_data/src
 widgets: []
