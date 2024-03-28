@@ -58,25 +58,9 @@ blocks:
   executor_type: local_python
   has_callback: false
   language: python
-  name: invasive_species_uae
-  retry_config: null
-  status: not_executed
-  timeout: null
-  type: data_loader
-  upstream_blocks: []
-  uuid: invasive_species_uae
-- all_upstream_blocks_executed: true
-  color: null
-  configuration: {}
-  downstream_blocks:
-  - clean_invasive
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: python
   name: invasive_species
   retry_config: null
-  status: executed
+  status: updated
   timeout: null
   type: data_loader
   upstream_blocks: []
@@ -92,30 +76,63 @@ blocks:
   language: python
   name: clean_invasive
   retry_config: null
-  status: failed
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
-  - invasive_species_uae
   - invasive_species
   uuid: clean_invasive
 - all_upstream_blocks_executed: false
   color: null
   configuration: {}
-  downstream_blocks: []
+  downstream_blocks:
+  - staging_external_models
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
   name: store_invasive_gcs
   retry_config: null
-  status: not_executed
+  status: executed
   timeout: null
   type: data_exporter
   upstream_blocks:
   - clean_invasive
   uuid: store_invasive_gcs
 - all_upstream_blocks_executed: true
+  color: null
+  configuration: {}
+  downstream_blocks:
+  - store_obis_gcs
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: obis_download
+  retry_config: null
+  status: executed
+  timeout: null
+  type: data_loader
+  upstream_blocks: []
+  uuid: obis_download
+- all_upstream_blocks_executed: true
+  color: null
+  configuration: {}
+  downstream_blocks:
+  - staging_external_models
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: store_obis_gcs
+  retry_config: null
+  status: updated
+  timeout: null
+  type: data_exporter
+  upstream_blocks:
+  - obis_download
+  uuid: store_obis_gcs
+- all_upstream_blocks_executed: false
   color: null
   configuration:
     dbt:
@@ -140,7 +157,7 @@ blocks:
   upstream_blocks:
   - staging_external_models
   uuid: dbt
-- all_upstream_blocks_executed: true
+- all_upstream_blocks_executed: false
   color: null
   configuration:
     dbt:
@@ -165,6 +182,8 @@ blocks:
   type: dbt
   upstream_blocks:
   - store_divesites_gcs
+  - store_invasive_gcs
+  - store_obis_gcs
   uuid: staging_external_models
 cache_block_output_in_memory: false
 callbacks: []
@@ -187,7 +206,7 @@ settings:
 spark_config: {}
 tags: []
 type: python
-updated_at: '2024-03-27 10:40:29'
+updated_at: '2024-03-28 14:23:12'
 uuid: marine_species
 variables_dir: /home/src/mage_data/src
 widgets: []

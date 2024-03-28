@@ -23,9 +23,9 @@ def download_zip(url, save_path):
 
 @data_loader
 def load_data_from_api(*args, **kwargs):
-    download_zip(invasive_archive, "redlist_archive.zip")
+    download_zip(invasive_archive, "invasive_core_archive.zip")
 
-    with DwCAReader("redlist_archive.zip") as dwca:
+    with DwCAReader("invasive_core_archive.zip") as dwca:
         print("Core data file is: {}".format(dwca.descriptor.core.file_location))
 
         invasive_df = dwca.pd_read(dwca.descriptor.core.file_location, parse_dates=True)

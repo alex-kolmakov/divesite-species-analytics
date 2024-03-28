@@ -8,12 +8,18 @@ sources:
     tables:
       - name: invasive_species_table
         external:
-          location: 'gs://marine_data_412615/invasive_species.parquet/*.parquet'
+          location: 'gs://marine_data_412615/invasives.parquet'
           options:
             format: parquet
 
       - name: divesites_table
         external:
           location: 'gs://marine_data_412615/divesites.parquet'
+          options:
+            format: parquet
+
+      - name: obis_table
+        external:
+          location: 'gs://marine_data_412615/obis.parquet'
           options:
             format: parquet

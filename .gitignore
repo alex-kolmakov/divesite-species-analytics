@@ -136,4 +136,6 @@ marine_data/dbt_packages/
 marine_data/logs/
 .file_versions/
 secret.json
-obis.parquet/
+obis.parquet
+invasive_core_archive.zip
+mage_data/src/.operation_history/
