@@ -39,3 +39,23 @@ gcloud init
 ```sh
 docker-compose up --build -d
 ```
+
+8. After this - proceed to port 6789 and launch the pipeline or setup a trigger.
+
+
+## WARNING
+
+Launching pipeline combines both GBIF and OBIS datasets and consumes around 130GiB in processed data from BigQuery. This happens because of the filtering over geographic coordinates in the `stg_occurences.sql` model.
+<img width="1319" alt="Screenshot 2024-03-29 at 6 19 32 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/ac1fd75f-46dc-4ca1-a261-dd3197fc7eb0">
+
+## Models preview
+
+Orchestration tree
+<img width="990" alt="Screenshot 2024-03-29 at 6 16 36 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/ae09b781-42a7-41cc-9ae5-75a4cdd08179">
+
+DBT models
+<img width="1419" alt="Screenshot 2024-03-29 at 6 14 34 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/d20bd13a-f887-4436-86d9-7d245a4cff8b">
+
+
+
+
