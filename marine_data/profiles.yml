@@ -9,6 +9,7 @@ marine_data_bq:
       threads: 4 # Must be a value of 1 or greater
       keyfile: ../secret.json
       location: US
+      max_bytes_billed: 1000000
     mage:
       type: bigquery
       method: service-account
@@ -17,3 +18,4 @@ marine_data_bq:
       threads: 4 # Must be a value of 1 or greater
       keyfile: /home/src/secret.json
       location: US
+      max_bytes_billed: 1000000

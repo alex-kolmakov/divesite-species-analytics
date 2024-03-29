@@ -2,7 +2,28 @@
 version: 2
 
 models:
-  - name: local_occurences
-    description: "Some local fauna"
-  - name: invasive_near_divesites
+  - name: divesites
     description: "invasive_near_divesites"
+    columns:
+      - name: title
+        tests:
+          - not_null
+      - name: geography
+        tests:
+          - not_null
+  - name: obis_occurences
+    description: "invasive_near_divesites"
+    columns:
+      - name: species
+        tests:
+          - not_null
+      - name: individual_count
+        tests:
+          - not_null
+      - name: eventdate
+        tests:
+          - not_null
+      - name: geography
+        tests:
+          - not_null
+      

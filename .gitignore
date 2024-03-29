@@ -139,4 +139,5 @@ marine_data/logs/
 secret.json
 obis.parquet
 invasive_core_archive.zip
+redlist_core_archive.zip
 mage_data/src/.operation_history/

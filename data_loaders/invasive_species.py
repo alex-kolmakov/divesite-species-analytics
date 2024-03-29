@@ -8,8 +8,6 @@ if 'test' not in globals():
     from mage_ai.data_preparation.decorators import test
 
 
-
-redlist_archive = "https://hosted-datasets.gbif.org/datasets/iucn/iucn-2022-1.zip"
 invasive_archive = "https://hosted-datasets.gbif.org/datasets/gisd_2011-11-20.zip"
 
 def download_zip(url, save_path):
@@ -33,8 +31,10 @@ def load_data_from_api(*args, **kwargs):
 
 
 @test
-def test_output(output, *args) -> None:
+def test_dataframe(output, *args) -> None:
     """
     Template code for testing the output of the block.
     """
     assert output is not None, 'The output is undefined'
+    assert output.empty is not True, 'Resulting dataframe is empty'
+

@@ -18,11 +18,11 @@ sources:
       block_uuid: store_invasive_gcs
       pipeline_uuid: marine_species
     name: marine_species_store_invasive_gcs
-  - description: Dataframe for block `store_obis_gcs` of the `marine_species` mage
-      pipeline.
-    identifier: mage_marine_species_store_obis_gcs
+  - description: Dataframe for block `store_redlist_species` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_redlist_species
     meta:
-      block_uuid: store_obis_gcs
+      block_uuid: store_redlist_species
       pipeline_uuid: marine_species
-    name: marine_species_store_obis_gcs
+    name: marine_species_store_redlist_species
 version: 2

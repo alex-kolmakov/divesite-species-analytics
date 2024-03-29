@@ -1,4 +1,5 @@
 import requests
+import shutil
 import os
 from pathlib import Path
 
@@ -10,16 +11,11 @@ if 'test' not in globals():
 
 
 def download_file(url, destination):
-    """
-    Downloads a file from a given URL in chunks and saves it to the specified destination.
-    """
-    with requests.get(url, stream=True) as response:
-        response.raise_for_status()
-        
-        with open(destination, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024*1024):
-                f.write(chunk)
-    print(f"File downloaded successfully: {destination}")
+    with requests.get(url, stream=True) as r:
+        with open(destination, 'wb') as f:
+            shutil.copyfileobj(r.raw, f)
+
+    return destination
 
 
 

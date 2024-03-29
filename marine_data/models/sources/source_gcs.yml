@@ -11,6 +11,11 @@ sources:
           location: 'gs://marine_data_412615/invasives.parquet'
           options:
             format: parquet
+      - name: redlist_species_table
+        external:
+          location: 'gs://marine_data_412615/redlist_species.parquet'
+          options:
+            format: parquet
 
       - name: divesites_table
         external:
@@ -20,6 +25,6 @@ sources:
 
       - name: obis_table
         external:
-          location: 'gs://marine_data_412615/obis.parquet'
+          location: 'gs://marine_data_412615/obis.parquet/*.parquet'
           options:
             format: parquet

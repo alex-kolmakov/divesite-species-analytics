@@ -3,39 +3,21 @@ blocks:
   color: null
   configuration:
     file_source:
-      path: data_loaders/obis_download.py
+      path: transformers/transform_redlist.py
   downstream_blocks:
-  - store_obis_gcs
+  - store_redlist_species
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
-  name: obis_download
+  name: transform_redlist
   retry_config: null
-  status: not_executed
+  status: failed
   timeout: null
-  type: data_loader
-  upstream_blocks: []
-  uuid: obis_download
-- all_upstream_blocks_executed: false
-  color: null
-  configuration:
-    file_source:
-      path: data_exporters/store_obis_gcs.py
-  downstream_blocks:
-  - staging_external_models
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: python
-  name: store_obis_gcs
-  retry_config: null
-  status: not_executed
-  timeout: null
-  type: data_exporter
+  type: transformer
   upstream_blocks:
-  - obis_download
-  uuid: store_obis_gcs
+  - redlist_species
+  uuid: transform_redlist
 - all_upstream_blocks_executed: true
   color: null
   configuration: {}
@@ -90,19 +72,19 @@ blocks:
   color: null
   configuration: {}
   downstream_blocks:
-  - clean_invasive
+  - transform_invasive
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
   name: invasive_species
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: data_loader
   upstream_blocks: []
   uuid: invasive_species
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
   downstream_blocks:
@@ -111,15 +93,15 @@ blocks:
   executor_type: local_python
   has_callback: false
   language: python
-  name: clean_invasive
+  name: transform_invasive
   retry_config: null
   status: executed
   timeout: null
   type: transformer
   upstream_blocks:
   - invasive_species
-  uuid: clean_invasive
-- all_upstream_blocks_executed: false
+  uuid: transform_invasive
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
   downstream_blocks:
@@ -134,7 +116,7 @@ blocks:
   timeout: null
   type: data_exporter
   upstream_blocks:
-  - clean_invasive
+  - transform_invasive
   uuid: store_invasive_gcs
 - all_upstream_blocks_executed: false
   color: null
@@ -187,8 +169,41 @@ blocks:
   upstream_blocks:
   - store_divesites_gcs
   - store_invasive_gcs
-  - store_obis_gcs
+  - store_redlist_species
   uuid: staging_external_models
+- all_upstream_blocks_executed: true
+  color: null
+  configuration: {}
+  downstream_blocks:
+  - transform_redlist
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: redlist_species
+  retry_config: null
+  status: executed
+  timeout: null
+  type: data_loader
+  upstream_blocks: []
+  uuid: redlist_species
+- all_upstream_blocks_executed: false
+  color: null
+  configuration: {}
+  downstream_blocks:
+  - staging_external_models
+  executor_config: null
+  executor_type: local_python
+  has_callback: false
+  language: python
+  name: store_redlist_species
+  retry_config: null
+  status: updated
+  timeout: null
+  type: data_exporter
+  upstream_blocks:
+  - transform_redlist
+  uuid: store_redlist_species
 cache_block_output_in_memory: false
 callbacks: []
 concurrency_config: {}
@@ -210,7 +225,7 @@ settings:
 spark_config: {}
 tags: []
 type: python
-updated_at: '2024-03-28T14:23:12+00:00'
+updated_at: '2024-03-29 13:17:32'
 uuid: marine_species
 variables_dir: /home/src/mage_data/src
 widgets: []
