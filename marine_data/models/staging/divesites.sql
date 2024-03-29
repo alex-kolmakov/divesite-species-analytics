@@ -5,5 +5,5 @@ SELECT
     ST_GEOGPOINT(longitude, latitude) as geography
 FROM {{ source('marine_data', 'divesites_table') }}
 WHERE title IS NOT NULL 
-AND latitude BETWEEN {{vars('LATTITUDE_BOTTOM')}} AND {{vars('LATTITUDE_TOP')}}
-AND longitude BETWEEN {{vars('LONGITUDE_LEFT')}} AND {{vars('LONGITUDE_RIGHT')}}
+AND latitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
+AND longitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}

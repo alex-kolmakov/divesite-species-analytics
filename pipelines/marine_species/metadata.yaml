@@ -12,7 +12,7 @@ blocks:
   language: python
   name: transform_redlist
   retry_config: null
-  status: failed
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
@@ -118,7 +118,7 @@ blocks:
   upstream_blocks:
   - transform_invasive
   uuid: store_invasive_gcs
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration:
     dbt:
@@ -143,7 +143,7 @@ blocks:
   upstream_blocks:
   - staging_external_models
   uuid: dbt
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration:
     dbt:
@@ -187,7 +187,7 @@ blocks:
   type: data_loader
   upstream_blocks: []
   uuid: redlist_species
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
   downstream_blocks:
@@ -198,7 +198,7 @@ blocks:
   language: python
   name: store_redlist_species
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: data_exporter
   upstream_blocks:
@@ -225,7 +225,7 @@ settings:
 spark_config: {}
 tags: []
 type: python
-updated_at: '2024-03-29 13:17:32'
+updated_at: '2024-03-29 14:17:11'
 uuid: marine_species
 variables_dir: /home/src/mage_data/src
 widgets: []

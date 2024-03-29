@@ -18,8 +18,8 @@ FROM {{ source('marine_data', 'obis_table') }}
 WHERE eventDate IS NOT NULL 
     AND species IS NOT NULL
     AND individualCount IS NOT NULL
-    AND decimalLatitude BETWEEN {{vars('LATTITUDE_BOTTOM')}} AND {{vars('LATTITUDE_TOP')}}
-    AND decimalLongitude BETWEEN {{vars('LONGITUDE_LEFT')}} AND {{vars('LONGITUDE_RIGHT')}}
+    AND decimalLatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
+    AND decimalLongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
 
 UNION ALL
 

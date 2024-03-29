@@ -1,6 +1,6 @@
 {{ config(materialized='table') }}
 
-WITH dive_site_occurrences AS (
+WITH dive_site_invasive_occurrences AS (
     SELECT 
         d.title,  
         o.eventdate,
@@ -15,5 +15,5 @@ WITH dive_site_occurrences AS (
 )
 
 SELECT *
-FROM dive_site_occurrences
+FROM dive_site_invasive_occurrences
 WHERE proximity_rank = 1
