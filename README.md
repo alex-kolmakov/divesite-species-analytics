@@ -57,5 +57,6 @@ DBT models
 <img width="1419" alt="Screenshot 2024-03-29 at 6 14 34 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/d20bd13a-f887-4436-86d9-7d245a4cff8b">
 
 
+Resulting looker dashboard: https://lookerstudio.google.com/s/vSQv3DXuGNQ
 
-
+<img width="1263" alt="Screenshot 2024-03-31 at 10 12 14 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/4c43e0f7-587e-44f4-86af-9da4d9b9e32c">
