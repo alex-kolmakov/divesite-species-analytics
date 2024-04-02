@@ -9,24 +9,31 @@
     cluster_by=['geography']) 
 }}
 
-SELECT 
-    species, 
-    SAFE_CAST(individualCount AS INT64) as individualcount, 
-    SAFE_CAST(eventDate AS TIMESTAMP) as eventdate, 
-    ST_GEOGPOINT(decimalLongitude, decimalLatitude) as geography
-FROM {{ source('marine_data', 'obis_table') }}
-WHERE eventDate IS NOT NULL 
-    AND species IS NOT NULL
-    AND individualCount IS NOT NULL
-    AND decimalLatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
-    AND decimalLongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+with combined_table as (
 
-UNION ALL
+    SELECT 
+        species, 
+        SAFE_CAST(individualCount AS INT64) as individualcount, 
+        SAFE_CAST(eventDate AS TIMESTAMP) as eventdate, 
+        ST_GEOGPOINT(decimalLongitude, decimalLatitude) as geography
+    FROM {{ source('marine_data', 'obis_table') }}
+    WHERE decimalLatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
+        AND decimalLongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
 
-SELECT 
-    species, 
-    individualcount, 
-    eventdate, 
-    ST_GEOGPOINT(decimallongitude, decimallatitude) as geography
-FROM `bigquery-public-data.gbif.occurrences` 
-WHERE countrycode = 'AE'
+    UNION ALL
+
+    SELECT 
+        species, 
+        individualcount, 
+        eventdate, 
+        ST_GEOGPOINT(decimallongitude, decimallatitude) as geography
+    FROM `bigquery-public-data.gbif.occurrences` 
+    WHERE decimallatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
+        AND decimallongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+)
+
+SELECT * FROM combined_table
+WHERE species IS NOT NULL 
+    AND individualcount IS NOT NULL 
+    AND eventdate IS NOT NULL 
+    AND geography IS NOT NULL

@@ -2,28 +2,60 @@
 version: 2
 
 models:
-  - name: divesites
-    description: "invasive_near_divesites"
+  - name: stg_occurences
+    description: "GBIF and OBIS data combined. This model represents the staging occurrences of marine species. It includes fields such as title and geography. Each record must have a non-null title and geography."
     columns:
-      - name: title
+      - name: species
+        description: "The species of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+      - name: individualcount
+        description: "Count of individuals for the species. This field is required and must not be null."
         tests:
           - not_null
       - name: geography
-        tests:
-          - not_null
-  - name: obis_occurences
-    description: "invasive_near_divesites"
-    columns:
-      - name: species
-        tests:
-          - not_null
-      - name: individual_count
+        description: "The geographical location of the occurrence. This field is required and must not be null."
         tests:
           - not_null
       - name: eventdate
+        description: "The date of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+  - name: stg_invasive_occurences
+    description: "This model represents the invasive species data. It includes fields such as species and individualcount. Each record must have a non-null species and individualcount."
+    columns:
+      - name: species
+        description: "The species of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+      - name: individualcount
+        description: "Count of individuals for the species. This field is required and must not be null."
         tests:
           - not_null
       - name: geography
+        description: "The geographical location of the occurrence. This field is required and must not be null."
         tests:
           - not_null
-      
+      - name: eventdate
+        description: "The date of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+  - name: stg_redlist_occurences
+    description: "This model represents the redlist species data. It includes fields such as species and individualcount. Each record must have a non-null species and individualcount."
+    columns:
+      - name: species
+        description: "The species of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+      - name: individualcount
+        description: "Count of individuals for the species. This field is required and must not be null."
+        tests:
+          - not_null
+      - name: geography
+        description: "The geographical location of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+      - name: eventdate
+        description: "The date of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
