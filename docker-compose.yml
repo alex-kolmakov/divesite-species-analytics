@@ -1,4 +1,10 @@
 version: '3'
+
+
+networks:
+  shared_network:
+
+  
 services:
   magic:
     command: mage start ${PROJECT_NAME}
@@ -15,6 +21,3 @@ services:
     restart: on-failure:5
     networks:
       - shared_network
-
-networks:
-  shared_network:
