@@ -2,3 +2,5 @@ python-dwca-reader
 pandas
 asyncio
 aiohttp
+duckdb
+pyspark
