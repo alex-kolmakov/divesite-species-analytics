@@ -1,18 +1,19 @@
 # Species Analytics
 
-Idea for the project was inspired by https://www.emiratesdiving.com/ article about local outbreak of Acanthaster planci(Crown of thorns starfish that can multiply quite fast and poses danger to local coral population). If you are interested in the subject - please consider checking out https://www.emiratesdiving.com/magazine/divers-for-the-environment-march-2024/.
+Idea for the project was inspired by [EDA article](https://www.emiratesdiving.com/magazine/divers-for-the-environment-march-2024/) about local outbreak of Acanthaster planci(Crown of thorns starfish that can multiply quite fast and poses danger to local coral population). If you are interested in the subject - please consider [checking them out](https://www.emiratesdiving.com/).
 
-For the first iteration I wanted to build a project that allows to view biodiversity data near local divesites that I frequent and understand yearly trends and overall state of what kind of data is offered as publicly available. 
+For the first iteration I wanted to build a project that allows to view biodiversity data near local divesites, understand yearly trends and overall state of what kind of data is being offered as publicly available. 
 
 This project uses 4 sources of data: 
-- GBIF occurence data - https://www.gbif.org/
-- OBIS data as additional source of occurence data - https://obis.org/
-- Global invasive species database - https://www.gbif.org/dataset/b351a324-77c4-41c9-a909-f30f77268bc4
-- IUCN Red list of species as a Darwin Core archive - https://www.gbif.org/dataset/19491596-35ae-4a91-9a98-85cf505f1bd3
+- [GBIF occurence data](https://www.gbif.org/)
+- [OBIS data as additional source of occurence data](https://obis.org/)
+- [Global invasive species database](https://www.gbif.org/dataset/b351a324-77c4-41c9-a909-f30f77268bc4)
+- [IUCN Red list of species as a Darwin Core archive](https://www.gbif.org/dataset/19491596-35ae-4a91-9a98-85cf505f1bd3)
 
 Combining them will allow to explain how different underwater points of interest relate to occurence data.
 
-<img width="1263" alt="Screenshot 2024-03-31 at 10 12 14 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/4c43e0f7-587e-44f4-86af-9da4d9b9e32c">
+<img width="1155" alt="Screenshot 2024-04-02 at 3 54 06 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/322ca8b5-fcba-4d82-b9a5-e195b4c816e3">
+
 
 
 This project uses mage.ai to orchestrate data ingestion and dbt runs for a marine species analytics project. The data ingestion script fetches data from the web and stores it in Google Cloud Storage. The dbt models transform the raw data into a structured format that can be used for analysis.
@@ -80,7 +81,13 @@ DBT models
 <img width="1419" alt="Screenshot 2024-03-29 at 6 14 34 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/d20bd13a-f887-4436-86d9-7d245a4cff8b">
 
 
-Resulting looker dashboard: https://lookerstudio.google.com/s/vSQv3DXuGNQ
+
+## Dashboard
+
+[Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ) was done in Looker Studio and has 3 pages:
+- Divesites view
+- Invasive species near divesites view
+- Endangered species near divesites view 
 
 
 
@@ -88,8 +95,6 @@ Resulting looker dashboard: https://lookerstudio.google.com/s/vSQv3DXuGNQ
 
 - OBIS data proved to be challenging as it is offered as single files weighing more than 15Gb. Due to time constraints processing of that wont be included in the orchestrated pipeline - but for convenience already provided as a Pyspark notebook that will produce required result locally and allow for upload to GCS. For the second iteration it will be beneficial to add this to overall pipeline or make it a standalone pipeline running on a PySpark kernel.
 
-- DBT models require test and documentation coverage that was omitted for the first iteration.
-
 - There is a way to enrich the data with adding images to species by either feeding them through gbif api or implementing custom search endpoints on google. But it will require to make mage node asynchronous since doing this normally takes much longer.
 
-- Final improvement wil lbe adding ability to mix in community observed data either through common tables and forms or any other to make the data even more relatable.
+- Final improvement will be adding ability to mix in community observed data either through common tables and forms or any other to make the data even more relatable.
