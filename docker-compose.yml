@@ -21,7 +21,8 @@ services:
     volumes:
       - .:/home/src/
       - shared_data:/home/data
-
+    depends_on:
+      - spark-master
     restart: on-failure:5
     networks:
       - shared_network

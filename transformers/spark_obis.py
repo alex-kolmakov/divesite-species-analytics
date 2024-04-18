@@ -1,5 +1,7 @@
 import pyspark
 import os
+from pyspark.sql import functions as F
+from datetime import datetime
 from pyspark.sql import SparkSession
 
 if 'transformer' not in globals():
@@ -17,32 +19,29 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 
-# @transformer
-# def transform(data, *args, **kwargs):
-#     print(os.path.exists("/home/data/obis.parquet"))
-#     df = spark.read.parquet("/home/data/obis.parquet")
-#     #obis_columns = ["marine", "class", "genus", "species", "variety", "individualCount", "eventDate", "eventTime", "year", "month", "day", "country", "locality", "decimalLongitude", "decimalLatitude"]
-
-#     # obis_df = df.select(obis_columns)
-#     obis_df = df.repartition(10)
-#     obis_df.write.mode('overwrite').parquet("/home/data/obis_modified.parquet")
-#     return "/home/data/obis_modified.parquet"
-
-
-
 @transformer
 def transform(data, *args, **kwargs):
-    target_directory = "/home/data/obis_modified.parquet"
-    print(os.path.exists("/home/data/obis.parquet"))
     df = spark.read.parquet("/home/data/obis.parquet")
-    #obis_columns = ["marine", "class", "genus", "species", "variety", "individualCount", "eventDate", "eventTime", "year", "month", "day", "country", "locality", "decimalLongitude", "decimalLatitude"]
-    #obis_df = df.select(obis_columns)
-    obis_df = df.repartition(5)
-    obis_df.write.mode('overwrite').parquet(target_directory)
-    print(os.path.exists(target_directory))
     
-    # df = spark.read.parquet(target_directory)
-    return target_directory
+    current_year = datetime.now().year
+
+    obis_columns = [
+        "species", "individualCount", "eventDate", "eventTime",
+        "year", "month", "day", "decimalLongitude", "decimalLatitude"
+    ]
+    obis_df = df.select(*obis_columns)
+
+    # Filtering the DataFrame
+    filtered_df = obis_df.filter(
+        (F.col('species').isNotNull()) &
+        (F.col('eventDate').isNotNull()) &
+        (F.col('individualCount') > 0) &
+        (F.col('year') >= current_year - 5)
+    )
+
+    obis_df = filtered_df.toPandas()
+
+    return obis_df
 
 @test
 def test_output(output, *args) -> None:

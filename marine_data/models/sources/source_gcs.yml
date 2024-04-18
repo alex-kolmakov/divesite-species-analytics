@@ -28,6 +28,6 @@ sources:
       - name: obis_table
         description: 'Table containing data from the Ocean Biogeographic Information System (OBIS)'
         external:
-          location: 'gs://marine_data_412615/obis.parquet/*.parquet'
+          location: 'gs://marine_data_412615/obis.parquet'
           options:
             format: parquet

@@ -68,7 +68,7 @@ blocks:
   type: data_loader
   upstream_blocks: []
   uuid: invasive_species
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
   downstream_blocks:
@@ -104,7 +104,7 @@ blocks:
   language: yaml
   name: dbt
   retry_config: null
-  status: executed
+  status: failed
   timeout: null
   type: dbt
   upstream_blocks:
@@ -137,6 +137,7 @@ blocks:
   - store_divesites_gcs
   - store_invasive_gcs
   - store_redlist_species
+  - store_obis_gcs_py
   uuid: staging_external_models
 - all_upstream_blocks_executed: true
   color: null
@@ -198,7 +199,7 @@ blocks:
   language: python
   name: enrich_with_images
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: custom
   upstream_blocks:
@@ -231,16 +232,17 @@ blocks:
   language: python
   name: spark_obis
   retry_config: {}
-  status: failed
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
   - obis_download
   uuid: spark_obis
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
-  downstream_blocks: []
+  downstream_blocks:
+  - staging_external_models
   executor_config: null
   executor_type: local_python
   has_callback: false
@@ -274,7 +276,7 @@ settings:
 spark_config: {}
 tags: []
 type: python
-updated_at: '2024-04-18 10:33:03'
+updated_at: '2024-04-18 14:58:31'
 uuid: marine_species
 variables_dir: /home/src/mage_data/src
 widgets: []
