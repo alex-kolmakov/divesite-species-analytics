@@ -47,7 +47,7 @@ def compute_file_crc(filename):
 
 
 @test
-def test_output(output, *args) -> None:
+def test_output(output, *args, **kwargs) -> None:
     """
     Template code for testing the output of the block.
     """
@@ -55,5 +55,5 @@ def test_output(output, *args) -> None:
     assert output is not None, 'The output is undefined'
 
     crc = compute_file_crc(output)
-    print(f"SHA-256 checksum: {crc}")
-    assert crc == 'b35447f1564e82fc771bd9b259316558b3734db623cae39d4c613125d89c77fd', 'The file is corrupted'
+
+    assert crc == kwargs.get('FILE_CHECKSUM'), 'The file is corrupted'

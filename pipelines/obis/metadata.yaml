@@ -107,9 +107,10 @@ tags:
 - GCS
 - DBT
 type: python
-updated_at: '2024-04-20 08:04:51'
+updated_at: '2024-04-20 09:16:18'
 uuid: obis
 variables:
+  FILE_CHECKSUM: b35447f1564e82fc771bd9b259316558b3734db623cae39d4c613125d89c77fd
   FILE_URL: https://obis-datasets.ams3.digitaloceanspaces.com/exports/obis_20231025.parquet
 variables_dir: /home/src/mage_data/src
 widgets: []
