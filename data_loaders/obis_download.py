@@ -56,4 +56,4 @@ def test_output(output, *args) -> None:
 
     crc = compute_file_crc(output)
     print(f"SHA-256 checksum: {crc}")
-    assert crc == 1007414139, 'The file is corrupted'
+    assert crc == 'b35447f1564e82fc771bd9b259316558b3734db623cae39d4c613125d89c77fd', 'The file is corrupted'
