@@ -17,7 +17,7 @@ WORKDIR ${MAGE_CODE_PATH}
 
 COPY orchestration .
 
-# RUN ${PIP} install -r requirements.txt
+RUN ${PIP} install -r requirements.txt
 
 RUN cd analytics && dbt deps
 
