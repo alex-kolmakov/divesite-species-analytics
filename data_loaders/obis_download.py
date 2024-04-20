@@ -2,6 +2,7 @@
 import requests
 import logging
 import hashlib
+import os
 
 if 'data_loader' not in globals():
     from mage_ai.data_preparation.decorators import data_loader
@@ -12,6 +13,9 @@ if 'test' not in globals():
 def load_data_from_file(*args, **kwargs):
     url = kwargs['FILE_URL']
     download_path = "/home/data/obis.parquet"
+    if os.path.exists(download_path) and kwargs.get('FILE_CHECKSUM') == compute_file_crc(download_path):
+        print("File already exists")
+        return download_path
     response = requests.get(url, stream=True)
     total_size = int(response.headers.get('content-length', 0))
     downloaded_size = 0
@@ -35,7 +39,7 @@ def compute_file_crc(filename):
     try:
         with open(filename, 'rb') as f:
             while True:
-                data = f.read(1024)  # Read in chunks of 1 MB
+                data = f.read(1024*1024)  # Read in chunks of 1 MB
                 if not data:
                     break
                 hasher.update(data)  # Update the hasher with downloaded data
