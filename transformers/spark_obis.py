@@ -14,7 +14,7 @@ spark = SparkSession.builder \
     .master("spark://spark-master:7077") \
     .appName('OBIS') \
     .config("spark.executor.memory", "1g") \
-    .config("spark.driver.memory", "4g") \
+    .config("spark.driver.memory", "3g") \
     .config("spark.sql.files.maxPartitionBytes", "128m") \
     .getOrCreate()
 
@@ -23,8 +23,6 @@ spark = SparkSession.builder \
 def transform(data, *args, **kwargs):
     df = spark.read.parquet("/home/data/obis.parquet")
     
-    current_year = datetime.now().year
-
     obis_columns = [
         "species", "individualCount", "eventDate", "eventTime",
         "year", "month", "day", "decimalLongitude", "decimalLatitude"
