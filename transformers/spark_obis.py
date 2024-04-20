@@ -14,7 +14,7 @@ spark = SparkSession.builder \
     .master("spark://spark-master:7077") \
     .appName('OBIS') \
     .config("spark.executor.memory", "1g") \
-    .config("spark.driver.memory", "3g") \
+    .config("spark.driver.memory", "4g") \
     .config("spark.sql.files.maxPartitionBytes", "128m") \
     .getOrCreate()
 
@@ -23,6 +23,8 @@ spark = SparkSession.builder \
 def transform(data, *args, **kwargs):
     df = spark.read.parquet("/home/data/obis.parquet")
     
+    current_year = datetime.now().year
+
     obis_columns = [
         "species", "individualCount", "eventDate", "eventTime",
         "year", "month", "day", "decimalLongitude", "decimalLatitude"
@@ -33,7 +35,8 @@ def transform(data, *args, **kwargs):
     filtered_df = obis_df.filter(
         (F.col('species').isNotNull()) &
         (F.col('eventDate').isNotNull()) &
-        (F.col('individualCount') > 0)
+        (F.col('individualCount') > 0) &
+        (F.col('year') >= current_year - 10)
     )
 
     obis_df = filtered_df.toPandas()
