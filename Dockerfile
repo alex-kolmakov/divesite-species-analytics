@@ -19,8 +19,6 @@ COPY orchestration .
 
 RUN ${PIP} install -r requirements.txt
 
-RUN cd analytics && dbt deps
-
 WORKDIR ${MAGE_CODE_PATH}/orchestration
 
 ENV PYTHONPATH="${PYTHONPATH}:/home/src"
