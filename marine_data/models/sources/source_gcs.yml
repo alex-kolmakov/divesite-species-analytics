@@ -31,3 +31,10 @@ sources:
           location: 'gs://marine_data_412615/obis.parquet'
           options:
             format: parquet
+  
+      - name: reef_check_table
+        description: 'Table containing data from the Reef Check Foundation'
+        external:
+          location: 'gs://marine_data_412615/reef_check.parquet'
+          options:
+            format: parquet

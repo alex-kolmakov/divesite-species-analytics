@@ -30,6 +30,18 @@ with combined_table as (
     FROM `bigquery-public-data.gbif.occurrences` 
     WHERE decimallatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
         AND decimallongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+
+    UNION ALL
+
+    SELECT 
+        species, 
+        SAFE_CAST(individualCount AS INT64) as individualcount, 
+        SAFE_CAST(date AS TIMESTAMP) as eventdate, 
+        ST_GEOGPOINT(longitude, latitude) as geography
+    FROM {{ source('marine_data', 'reef_check_table') }}
+    WHERE latitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
+    AND longitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+
 )
 
 SELECT * FROM combined_table

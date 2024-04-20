@@ -27,6 +27,11 @@ def load_data_from_api(*args, **kwargs):
         print("Core data file is: {}".format(dwca.descriptor.core.file_location))
 
         invasive_df = dwca.pd_read(dwca.descriptor.core.file_location, parse_dates=True)
+        invasive_df = invasive_df.append({
+            'id': '8567', 
+            'scientificName': 'Diadema antillarum',
+            'source': None
+        }, ignore_index=True)
         return invasive_df
 
 

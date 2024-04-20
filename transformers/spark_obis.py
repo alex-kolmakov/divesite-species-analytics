@@ -35,8 +35,7 @@ def transform(data, *args, **kwargs):
     filtered_df = obis_df.filter(
         (F.col('species').isNotNull()) &
         (F.col('eventDate').isNotNull()) &
-        (F.col('individualCount') > 0) &
-        (F.col('year') >= current_year - 5)
+        (F.col('individualCount') > 0)
     )
 
     obis_df = filtered_df.toPandas()

@@ -25,12 +25,12 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 
 vars:
-  AGGREGATION_WINDOW_DAYS: 1095
+  AGGREGATION_WINDOW_DAYS: 10095
   PROXIMITY_METERS: 5000
-  LATTITUDE_TOP: 26.5
-  LATTITUDE_BOTTOM: 22.5
-  LONGITUDE_LEFT: 51
-  LONGITUDE_RIGHT: 56.5
+  LATTITUDE_TOP: 30.66489757647602
+  LATTITUDE_BOTTOM: 16.065200675506453
+  LONGITUDE_LEFT:  26.826989782652404
+  LONGITUDE_RIGHT: 38.376462723189036
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
