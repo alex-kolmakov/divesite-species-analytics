@@ -130,14 +130,15 @@ dmypy.json
 
 # VScode
 .DS_Store
-.terraform
-.terraform.lock.hcl
-marine_data/target/
-marine_data/dbt_packages/
-marine_data/logs/
-.file_versions/
+terraform/.terraform
+terraform/.terraform.lock.hcl
+analytics/target/
+analytics/logs/
+orchestration/.file_versions/
 secret.json
 obis.parquet
 invasive_core_archive.zip
 redlist_core_archive.zip
-mage_data/src/.operation_history/
+mage_data
+.ssh_tunnel
+pipelines

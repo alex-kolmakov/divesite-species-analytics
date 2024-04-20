@@ -1,1 +1,0 @@
-{"id": "str", "scientificName": "str", "kingdom": "str", "phylum": "str", "class": "str", "order": "str", "family": "str", "genus": "str", "specificEpithet": "str", "scientificNameAuthorship": "str", "taxonRank": "str", "infraspecificEpithet": "str", "taxonomicStatus": "str", "acceptedNameUsageID": "int64", "bibliographicCitation": "str", "references": "str"}
