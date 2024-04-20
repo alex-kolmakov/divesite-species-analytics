@@ -17,8 +17,8 @@ with combined_table as (
         SAFE_CAST(eventDate AS TIMESTAMP) as eventdate, 
         ST_GEOGPOINT(decimalLongitude, decimalLatitude) as geography
     FROM {{ source('marine_data', 'obis_table') }}
-    WHERE decimalLatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
-        AND decimalLongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+    WHERE decimalLatitude BETWEEN {{env_var('LATTITUDE_BOTTOM')}} AND {{env_var('LATTITUDE_TOP')}}
+        AND decimalLongitude BETWEEN {{env_var('LONGITUDE_LEFT')}} AND {{env_var('LONGITUDE_RIGHT')}}
 
     UNION ALL
 
@@ -28,8 +28,8 @@ with combined_table as (
         eventdate, 
         ST_GEOGPOINT(decimallongitude, decimallatitude) as geography
     FROM `bigquery-public-data.gbif.occurrences` 
-    WHERE decimallatitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
-        AND decimallongitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+    WHERE decimallatitude BETWEEN {{env_var('LATTITUDE_BOTTOM')}} AND {{env_var('LATTITUDE_TOP')}}
+        AND decimallongitude BETWEEN {{env_var('LONGITUDE_LEFT')}} AND {{env_var('LONGITUDE_RIGHT')}}
 
     UNION ALL
 
@@ -39,8 +39,8 @@ with combined_table as (
         SAFE_CAST(date AS TIMESTAMP) as eventdate, 
         ST_GEOGPOINT(longitude, latitude) as geography
     FROM {{ source('marine_data', 'reef_check_table') }}
-    WHERE latitude BETWEEN {{var('LATTITUDE_BOTTOM')}} AND {{var('LATTITUDE_TOP')}}
-    AND longitude BETWEEN {{var('LONGITUDE_LEFT')}} AND {{var('LONGITUDE_RIGHT')}}
+    WHERE latitude BETWEEN {{env_var('LATTITUDE_BOTTOM')}} AND {{env_var('LATTITUDE_TOP')}}
+    AND longitude BETWEEN {{env_var('LONGITUDE_LEFT')}} AND {{env_var('LONGITUDE_RIGHT')}}
 
 )
 

@@ -11,7 +11,7 @@ if 'test' not in globals():
 
 
 spark = SparkSession.builder \
-    .master("spark://spark-master:7077") \
+    .master(os.environ.get('SPARK_MASTER_HOST')) \
     .appName('OBIS') \
     .config("spark.executor.memory", "1g") \
     .config("spark.driver.memory", "4g") \

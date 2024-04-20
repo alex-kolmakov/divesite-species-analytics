@@ -92,4 +92,11 @@ sources:
       block_uuid: store_reef_check_gcs
       pipeline_uuid: reef_check
     name: reef_check_store_reef_check_gcs
+  - description: Dataframe for block `store_divesites_gcs` of the `divesites` mage
+      pipeline.
+    identifier: mage_divesites_store_divesites_gcs
+    meta:
+      block_uuid: store_divesites_gcs
+      pipeline_uuid: divesites
+    name: divesites_store_divesites_gcs
 version: 2

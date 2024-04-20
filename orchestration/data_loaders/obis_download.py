@@ -11,7 +11,7 @@ if 'test' not in globals():
 
 @data_loader
 def load_data_from_file(*args, **kwargs):
-    url = kwargs['FILE_URL']
+    url = os.environ.get('OBIS_PARQUET_URL')
     download_path = "/home/data/obis.parquet"
     if os.path.exists(download_path) and kwargs.get('FILE_CHECKSUM') == compute_file_crc(download_path):
         print("File already exists")
@@ -60,4 +60,4 @@ def test_output(output, *args, **kwargs) -> None:
 
     crc = compute_file_crc(output)
 
-    assert crc == kwargs.get('FILE_CHECKSUM'), 'The file is corrupted'
+    assert crc ==  os.environ.get('OBIS_PARQUET_URL'), 'The file is corrupted'

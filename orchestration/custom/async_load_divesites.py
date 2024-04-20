@@ -1,15 +1,16 @@
+import os
 import nest_asyncio
 import asyncio
 import aiohttp
-import pandas as pd  # Ensure pandas is imported for DataFrame operations
+import pandas as pd
 
 if 'custom' not in globals():
     from mage_ai.data_preparation.decorators import custom
 
 nest_asyncio.apply()
 
-BASE_GUIDE_URL = "https://travel.padi.com/api/v2/travel/dive-guide/world/all/dive-sites/"
-BASE_MAP_URL = "https://travel.padi.com/api/v2/travel/dsl/dive-sites/map/"
+BASE_GUIDE_URL = os.environ.get("BASE_PADI_GUIDE_URL")
+BASE_MAP_URL = os.environ.get("BASE_PADI_MAP_URL")
 
 
 async def fetch_data(session, url, datakey=None):
@@ -28,6 +29,7 @@ async def fetch_all_guide_data(session):
         status, data = await fetch_data(session, url, datakey='results')
         if status == 404 or not data:
             break
+        print(f"Successfully fetched {url}")
         all_data.extend(data)
         page += 1
     return all_data
