@@ -1,0 +1,102 @@
+sources:
+- description: Dataframes Mage upstream blocks
+  loader: mage
+  name: mage_marine_data
+  schema: marine_data
+  tables:
+  - description: Dataframe for block `store_divesites_gcs` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_divesites_gcs
+    meta:
+      block_uuid: store_divesites_gcs
+      pipeline_uuid: marine_species
+    name: marine_species_store_divesites_gcs
+  - description: Dataframe for block `store_invasive_gcs` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_invasive_gcs
+    meta:
+      block_uuid: store_invasive_gcs
+      pipeline_uuid: marine_species
+    name: marine_species_store_invasive_gcs
+  - description: Dataframe for block `store_redlist_species` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_redlist_species
+    meta:
+      block_uuid: store_redlist_species
+      pipeline_uuid: marine_species
+    name: marine_species_store_redlist_species
+  - description: Dataframe for block `store_obis_gcs_py` of the `marine_species` mage
+      pipeline.
+    identifier: mage_marine_species_store_obis_gcs_py
+    meta:
+      block_uuid: store_obis_gcs_py
+      pipeline_uuid: marine_species
+    name: marine_species_store_obis_gcs_py
+  - description: Dataframe for block `store_reef_check_gcs` of the `marine_species`
+      mage pipeline.
+    identifier: mage_marine_species_store_reef_check_gcs
+    meta:
+      block_uuid: store_reef_check_gcs
+      pipeline_uuid: marine_species
+    name: marine_species_store_reef_check_gcs
+  - description: Dataframe for block `store_reef_check_gcs` of the `reef_check_data`
+      mage pipeline.
+    identifier: mage_reef_check_data_store_reef_check_gcs
+    meta:
+      block_uuid: store_reef_check_gcs
+      pipeline_uuid: reef_check_data
+    name: reef_check_data_store_reef_check_gcs
+  - description: Dataframe for block `store_obis_gcs_py` of the `obis` mage pipeline.
+    identifier: mage_obis_store_obis_gcs_py
+    meta:
+      block_uuid: store_obis_gcs_py
+      pipeline_uuid: obis
+    name: obis_store_obis_gcs_py
+  - description: Dataframe for block `store_reef_check_gcs` of the `reef_check` mage
+      pipeline.
+    identifier: mage_reef_check_store_reef_check_gcs
+    meta:
+      block_uuid: store_reef_check_gcs
+      pipeline_uuid: reef_check
+    name: reef_check_store_reef_check_gcs
+  - description: Dataframe for block `store_invasive_gcs` of the `invasive_species`
+      mage pipeline.
+    identifier: mage_invasive_species_store_invasive_gcs
+    meta:
+      block_uuid: store_invasive_gcs
+      pipeline_uuid: invasive_species
+    name: invasive_species_store_invasive_gcs
+  - description: Dataframe for block `store_redlist_species` of the `endangered_species`
+      mage pipeline.
+    identifier: mage_endangered_species_store_redlist_species
+    meta:
+      block_uuid: store_redlist_species
+      pipeline_uuid: endangered_species
+    name: endangered_species_store_redlist_species
+  - description: Dataframe for block `store_divesites_gcs` of the `divesites` mage
+      pipeline.
+    identifier: mage_divesites_store_divesites_gcs
+    meta:
+      block_uuid: store_divesites_gcs
+      pipeline_uuid: divesites
+    name: divesites_store_divesites_gcs
+- description: Dataframes Mage upstream blocks
+  loader: mage
+  name: mage_analytics
+  schema: marine_data
+  tables:
+  - description: Dataframe for block `store_reef_check_gcs` of the `reef_check` mage
+      pipeline.
+    identifier: mage_reef_check_store_reef_check_gcs
+    meta:
+      block_uuid: store_reef_check_gcs
+      pipeline_uuid: reef_check
+    name: reef_check_store_reef_check_gcs
+  - description: Dataframe for block `store_divesites_gcs` of the `divesites` mage
+      pipeline.
+    identifier: mage_divesites_store_divesites_gcs
+    meta:
+      block_uuid: store_divesites_gcs
+      pipeline_uuid: divesites
+    name: divesites_store_divesites_gcs
+version: 2

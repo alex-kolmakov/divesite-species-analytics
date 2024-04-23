@@ -15,11 +15,11 @@ ARG MAGE_CODE_PATH=/home/src
 
 WORKDIR ${MAGE_CODE_PATH}
 
-COPY . .
+COPY orchestration .
 
 RUN ${PIP} install -r requirements.txt
 
-RUN cd marine_data && dbt deps && cd ${MAGE_CODE_PATH}
+WORKDIR ${MAGE_CODE_PATH}/orchestration
 
 ENV PYTHONPATH="${PYTHONPATH}:/home/src"
 
