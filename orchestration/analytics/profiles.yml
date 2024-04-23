@@ -7,7 +7,7 @@ marine_data_bq:
       project: gbif-412615
       dataset: marine_data
       threads: 4 # Must be a value of 1 or greater
-      keyfile: ../secret.json
+      keyfile: ../../secret.json
       location: US
       max_bytes_billed: 1000000
     mage:

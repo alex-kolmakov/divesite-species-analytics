@@ -52,6 +52,11 @@ def enrich_invasive_with_images(df, *args, **kwargs):
     loop.run_until_complete(update_dataframe())
 
     df = df.drop(columns=['source'])
+    df = df.append({
+        'id': '8567', 
+        'scientificName': 'Diadema antillarum',
+        'imageUrl': 'https://upload.wikimedia.org/wikipedia/commons/f/fd/Diadema_antillarum_Flower_Garden_Banks.jpg'
+    }, ignore_index=True)
     return df
 
 @test

@@ -99,4 +99,11 @@ sources:
       block_uuid: store_divesites_gcs
       pipeline_uuid: divesites
     name: divesites_store_divesites_gcs
+  - description: Dataframe for block `store_invasive_gcs` of the `invasive_species`
+      mage pipeline.
+    identifier: mage_invasive_species_store_invasive_gcs
+    meta:
+      block_uuid: store_invasive_gcs
+      pipeline_uuid: invasive_species
+    name: invasive_species_store_invasive_gcs
 version: 2
