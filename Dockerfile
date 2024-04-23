@@ -16,7 +16,7 @@ ARG MAGE_CODE_PATH=/home/src
 WORKDIR ${MAGE_CODE_PATH}
 
 COPY orchestration .
-
+COPY requirements.txt .
 RUN ${PIP} install -r requirements.txt
 
 WORKDIR ${MAGE_CODE_PATH}/orchestration
