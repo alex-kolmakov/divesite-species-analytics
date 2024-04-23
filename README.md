@@ -12,7 +12,8 @@ This project uses 4 sources of data:
 
 Combining them will allow to explain how different underwater points of interest relate to occurence data.
 
-<img width="1155" alt="Screenshot 2024-04-02 at 3 54 06 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/322ca8b5-fcba-4d82-b9a5-e195b4c816e3">
+
+<img width="1253" alt="Screenshot 2024-04-23 at 2 15 41 PM" src="https://github.com/Feanaur/divesite-species-analytics/assets/3127175/7bcb7d82-53bc-4dbc-8da4-b08fb1ec846a">
 
 
 
