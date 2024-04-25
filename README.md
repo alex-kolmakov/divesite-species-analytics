@@ -1,8 +1,54 @@
-# Species Analytics
 
-Idea for the project was inspired by [EDA article](https://www.emiratesdiving.com/magazine/divers-for-the-environment-march-2024/) about local outbreak of Acanthaster planci(Crown of thorns starfish that can multiply quite fast and poses danger to local coral population). If you are interested in the subject - please consider [checking them out](https://www.emiratesdiving.com/).
+# Divesite Species Analytics Data Pipeline 
 
-For the first iteration I wanted to build a project that allows to view biodiversity data near local divesites, understand yearly trends and overall state of what kind of data is being offered as publicly available. 
+### Data Engineering Zoom Camp | 2024 Cohort | Capstone Project 
+
+_**Author | Aleksandr Kolmakov**_
+
+
+
+## Table of Contents
+
+
+  <a href="#problem-statement">Problem Statement</a> • 
+  <a href="#applied-tools--technologies">Applied Tools & Technologies</a> •
+  <a href="#architecture-diagram">Architecture Diagram</a> • 
+  <a href="#articles">Articles</a> • 
+  <a href="#terraform-infrastructure-as-code">Terraform Infrastructure as Code</a> •
+
+  <a href="#testing">Testing</a> •
+  <a href="#dashboard">Dashboard</a> •
+  <a href="#further-ideas--next-steps">Further Ideas & Next Steps</a> •
+  <a href="#licensing">Licensing</a> •
+  <a href="#contributing--support">Contributing & Support</a> •
+  <a href="#acknowledgements--credits">Acknowledgements & Credits</a>
+
+
+### _Problem Statement_
+
+Efficiently collecting, processing, and disseminating critical earthquake information is imperative due to global seismic activity's varying magnitudes and frequencies. There's a pressing need to streamline earthquake data management for timely analysis, decision-making, and response efforts across the globe.
+
+
+### _Articles_ 
+
+Project is described in depth on the following articles:
+  - [Data Engineering Zoom Camp | Capstone Project](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
+
+
+### _Applied Tools & Technologies_
+
+Containerisation: <a href="https://www.docker.com/">Docker</a><br>
+Workflow Orchestration: <a href="https://www.mage.ai/">Mage</a><br>
+Data Transformations: <a href="https://www.getdbt.com/">DBT</a><br>
+Compute Engine: <a href="https://cloud.google.com/products/compute?hl=en">Google Cloud Virtual Machine</a><br>
+Data Lake: <a href="https://cloud.google.com/storage/?hl=en">Google Cloud Storage</a><br>
+Data Warehouse: <a href="https://cloud.google.com/bigquery?hl=en">Google BigQuery</a><br>
+Infrastructure as Code (IaC): <a href="https://www.terraform.io/">Terraform</a><br>
+Visualisation: <a href="https://lookerstudio.google.com/">Looker Studio</a><br>
+
+
+
+
 
 This project uses 4 sources of data: 
 - [GBIF occurence data](https://www.gbif.org/)
@@ -19,59 +65,6 @@ Combining them will allow to explain how different underwater points of interest
 
 This project uses mage.ai to orchestrate data ingestion and dbt runs for a marine species analytics project. The data ingestion script fetches data from the web and stores it in Google Cloud Storage. The dbt models transform the raw data into a structured format that can be used for analysis.
 
-## Prerequisites
-
-- Docker & Docker compose
-- Google Cloud SDK (for interacting with Google Cloud Storage through terraform)
-- Terraform
-- Jupyter Notebook & Spark (To be automated in the future)
-
-## Setup
-
-1. Clone the repository:
-
-```sh
-git clone https://github.com/yourusername/marine-species-analytics.git && cd marine-species-analytics
-```
-
-
-2. Create a `secret.json` file with your Google Cloud credentials from Service Account and put it in the root of the project.
-
-3. Update variables inside `variables.tf` to match your project setup in Google Cloud.
-
-4. Configure your Google Cloud SDK:
-
-```sh
-gcloud init
-```
-
-5. Run `terraform apply` to get all resources in the cloud up and running.
-
-
-6. MANUAL STEP: run locally `obis_data.ipynb` to get the data from OBIS API and save it. For this you will need to have Jupyter Notebook installed in your local machine with access to local Spark Cluster(or any other of your choice). Once you have the data, you can upload it to Google Cloud Storage. This step is not automated in the pipeline and will be the focus of later improvements.
-
-7. Before starting the project there is an ability to position desired place on the map and time window for analytics. You can find those variables in the `marine_data/dbt_project.yml`.
-    -   `AGGREGATION_WINDOW_DAYS: 1095` - occurence data for the past 3 years will be used
-    -   `PROXIMITY_METERS: 5000` - occurence points deemed "near" the divesites location when they are 5km or closer.
-    -   `LATTITUDE_TOP: 26.5`
-    -   `LATTITUDE_BOTTOM: 22.5`
-    -   `LONGITUDE_LEFT: 51`
-    -   `LONGITUDE_RIGHT: 56.5`  - all these variables allow you to pick a "square" on the map by pointing to top-right and bottom-left corners of the map. 
-
-
-9. Run the compose file to start mage.ai:
-
-```sh
-docker-compose up --build -d
-```
-
-9. After this - proceed to port 6789 and launch the pipeline or setup a trigger.
-
-
-## WARNING
-
-Launching pipeline combines both GBIF and OBIS datasets and consumes around 130GiB in processed data from BigQuery. This happens because of the filtering over geographic coordinates in the `stg_occurences.sql` model.
-<img width="1319" alt="Screenshot 2024-03-29 at 6 19 32 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/ac1fd75f-46dc-4ca1-a261-dd3197fc7eb0">
 
 ## Models preview
 

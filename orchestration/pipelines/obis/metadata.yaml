@@ -32,7 +32,7 @@ blocks:
   language: python
   name: spark_obis
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
@@ -51,7 +51,7 @@ blocks:
   language: python
   name: store_obis_gcs_py
   retry_config: null
-  status: not_executed
+  status: executed
   timeout: null
   type: data_exporter
   upstream_blocks:
@@ -63,7 +63,7 @@ blocks:
     dbt:
       command: run-operation
     dbt_profile_target: mage
-    dbt_project_name: marine_data
+    dbt_project_name: analytics
     disable_query_preprocessing: false
     export_write_policy: append
     file_source:
@@ -76,7 +76,7 @@ blocks:
   language: yaml
   name: stage_obis_model
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: dbt
   upstream_blocks:
@@ -107,7 +107,7 @@ tags:
 - GCS
 - DBT
 type: python
-updated_at: '2024-04-20 17:18:05'
+updated_at: '2024-04-25 14:41:29'
 uuid: obis
 variables: {}
 variables_dir: /home/src/mage_data/orchestration

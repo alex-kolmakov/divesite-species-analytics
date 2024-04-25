@@ -106,4 +106,10 @@ sources:
       block_uuid: store_invasive_gcs
       pipeline_uuid: invasive_species
     name: invasive_species_store_invasive_gcs
+  - description: Dataframe for block `store_obis_gcs_py` of the `obis` mage pipeline.
+    identifier: mage_obis_store_obis_gcs_py
+    meta:
+      block_uuid: store_obis_gcs_py
+      pipeline_uuid: obis
+    name: obis_store_obis_gcs_py
 version: 2

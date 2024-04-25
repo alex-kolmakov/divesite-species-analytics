@@ -59,5 +59,4 @@ def test_output(output, *args, **kwargs) -> None:
     assert output is not None, 'The output is undefined'
 
     crc = compute_file_crc(output)
-
     assert crc ==  os.environ.get('OBIS_PARQUET_URL'), 'The file is corrupted'

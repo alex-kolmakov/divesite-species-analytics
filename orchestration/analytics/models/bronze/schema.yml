@@ -2,8 +2,7 @@
 version: 2
 
 models:
-  - name: stg_occurences
-    description: "GBIF and OBIS data combined. This model represents the staging occurrences of marine species. It includes fields such as title and geography. Each record must have a non-null title and geography."
+  - name: stg_gbif_occurences
     columns:
       - name: species
         description: "The species of the occurrence. This field is required and must not be null."
@@ -21,8 +20,13 @@ models:
         description: "The date of the occurrence. This field is required and must not be null."
         tests:
           - not_null
-  - name: stg_invasive_occurences
-    description: "This model represents the invasive species data. It includes fields such as species and individualcount. Each record must have a non-null species and individualcount."
+      - name: source
+        description: "The source of the occurrence. This field is required and must not be null."
+        tests:
+          - not_null
+          - allowed_values:
+              values: ['GBIF']
+  - name: stg_obis_occurences
     columns:
       - name: species
         description: "The species of the occurrence. This field is required and must not be null."
@@ -40,8 +44,9 @@ models:
         description: "The date of the occurrence. This field is required and must not be null."
         tests:
           - not_null
-  - name: stg_redlist_occurences
-    description: "This model represents the redlist species data. It includes fields such as species and individualcount. Each record must have a non-null species and individualcount."
+          - allowed_values:
+              values: ['OBIS']          
+  - name: stg_reef_check_occurences
     columns:
       - name: species
         description: "The species of the occurrence. This field is required and must not be null."
@@ -59,3 +64,5 @@ models:
         description: "The date of the occurrence. This field is required and must not be null."
         tests:
           - not_null
+          - allowed_values:
+              values: ['REEF_CHECK']    
