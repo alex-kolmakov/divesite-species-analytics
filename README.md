@@ -65,14 +65,6 @@ Project is described in depth on the following articles:
 
 
 
-This project uses 4 sources of data: 
-- [GBIF occurence data](https://www.gbif.org/)
-- [OBIS data as additional source of occurence data](https://obis.org/)
-- [Global invasive species database](https://www.gbif.org/dataset/b351a324-77c4-41c9-a909-f30f77268bc4)
-- [IUCN Red list of species as a Darwin Core archive](https://www.gbif.org/dataset/19491596-35ae-4a91-9a98-85cf505f1bd3)
-
-Combining them will allow to explain how different underwater points of interest relate to occurence data.
-
 
 <img width="1253" alt="Screenshot 2024-04-23 at 2 15 41 PM" src="https://github.com/Feanaur/divesite-species-analytics/assets/3127175/7bcb7d82-53bc-4dbc-8da4-b08fb1ec846a">
 

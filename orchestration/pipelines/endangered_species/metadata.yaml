@@ -12,12 +12,12 @@ blocks:
   language: python
   name: redlist_species
   retry_config: null
-  status: not_executed
+  status: executed
   timeout: null
   type: data_loader
   upstream_blocks: []
   uuid: redlist_species
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration:
     file_source:
@@ -76,7 +76,7 @@ spark_config: {}
 tags:
 - GCS
 type: python
-updated_at: '2024-04-29T12:49:20+00:00'
+updated_at: '2024-04-29 14:05:47'
 uuid: endangered_species
 variables_dir: /home/src/mage_data/orchestration
 widgets: []

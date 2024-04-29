@@ -1,23 +1,15 @@
-import io
+import os
 import pandas as pd
-import requests
 from dwca.read import DwCAReader
+
+from utils.download_zip import download_zip
 if 'data_loader' not in globals():
     from mage_ai.data_preparation.decorators import data_loader
 if 'test' not in globals():
     from mage_ai.data_preparation.decorators import test
 
 
-invasive_archive = "https://hosted-datasets.gbif.org/datasets/gisd_2011-11-20.zip"
-
-def download_zip(url, save_path):
-    response = requests.get(url, stream=True)
-    with open(save_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
-
-
+invasive_archive = os.environ.get('INVASIVE_DWCA_ARCHIVE')
 
 @data_loader
 def load_data_from_api(*args, **kwargs):
