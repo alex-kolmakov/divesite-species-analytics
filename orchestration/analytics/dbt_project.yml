@@ -1,17 +1,10 @@
 
-# Name your project! Project names should contain only lowercase characters
-# and underscores. A good package name should reflect your organization's
-# name or the intended use of these models
-name: 'marine_data'
+name: 'divesites_data'
 version: '1.0.0'
 config-version: 2
 
-# This setting configures which "profile" dbt uses for this project.
 profile: 'divesites_data_bq'
 
-# These configurations specify where dbt should look for different types of files.
-# The `model-paths` config, for example, states that models in this project can be
-# found in the "models/" directory. You probably won't need to change these!
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
@@ -24,10 +17,13 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  marine_data:
-      bronze:
+  divesites_data:
+      seabed:
+          description: 'This model represents staged external tables from the several sources.'
           materialized: view
-      silver:
+      coral:
+          description: 'This model represents converted data from the staged sources to provide occurence reference tables.'
           materialized: table
-      gold:
+      reef:
+          description: 'Final aggregated tables for the divesites data.'
           materialized: table

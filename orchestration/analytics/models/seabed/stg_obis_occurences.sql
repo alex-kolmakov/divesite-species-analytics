@@ -1,5 +1,6 @@
-{{ config(enabled=true, materialized='table') }}
-
+{{ config(
+    materialized='table',
+) }}
 
 SELECT 
     species, 
@@ -9,6 +10,6 @@ SELECT
     'OBIS' as source
 FROM {{ source('marine_data', 'obis_table') }}
 
-{% if var("development", default=true) %} 
+{% if var("development", default=False) %} 
     LIMIT 100 
 {% endif %} 

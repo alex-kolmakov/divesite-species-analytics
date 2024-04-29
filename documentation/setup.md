@@ -48,10 +48,4 @@ Environment variables are:
 docker-compose up --build -d
 ```
 
-9. After this - proceed to port 6789 and launch the pipeline or setup a trigger.
-
-
-## WARNING
-
-Launching pipeline combines both GBIF and OBIS datasets and consumes around 130GiB in processed data from BigQuery. This happens because of the filtering over geographic coordinates in the `stg_occurences.sql` model.
-<img width="1319" alt="Screenshot 2024-03-29 at 6 19 32 PM" src="https://github.com/Feanaur/marine-species-analytics/assets/3127175/ac1fd75f-46dc-4ca1-a261-dd3197fc7eb0">
+9. After this - proceed to port 6789 and launch all of the pipelines.

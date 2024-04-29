@@ -1,8 +1,4 @@
-{{ config(
-    enabled=true, 
-    materialized='table',     
-)
-}}
+{{ config(materialized='table') }}
 
 SELECT 
     species, 
@@ -12,7 +8,7 @@ SELECT
     'GBIF' as source
 FROM `bigquery-public-data.gbif.occurrences`
 
-{% if var("development", default=true) %} 
+{% if var("development", default=False) %} 
     TABLESAMPLE SYSTEM (1 PERCENT) 
 {% endif %} 
 

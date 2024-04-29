@@ -14,8 +14,7 @@ WITH dive_site_redlist_occurrences AS (
         occurences.is_invasive
     FROM {{ ref('occurences') }} AS occurences
     CROSS JOIN {{ ref('divesites') }} AS divesites
-    WHERE ST_DWithin(occurences.geography, divesites.geography, {{ env_var('PROXIMITY_METERS') }}) 
-    AND occurences.eventdate >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {{ env_var('AGGREGATION_WINDOW_DAYS') }} DAY)
+    WHERE ST_DWithin(occurences.geography, divesites.geography, {{ env_var('PROXIMITY_METERS') }})
 )
 
 SELECT *

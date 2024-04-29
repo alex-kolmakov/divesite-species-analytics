@@ -2,70 +2,65 @@ blocks:
 - all_upstream_blocks_executed: true
   color: null
   configuration:
+    dbt:
+      command: run-operation
+    dbt_profile_target: mage
+    dbt_project_name: analytics
+    disable_query_preprocessing: false
+    export_write_policy: append
     file_source:
-      path: data_loaders/redlist_species.py
+      path: dbts/staging_external_models.yaml
+    use_raw_sql: false
   downstream_blocks:
-  - transform_redlist
+  - data_modelling
   executor_config: null
   executor_type: local_python
   has_callback: false
-  language: python
-  name: redlist_species
+  language: yaml
+  name: staging_external_models
   retry_config: null
-  status: not_executed
+  status: updated
   timeout: null
-  type: data_loader
+  type: dbt
   upstream_blocks: []
-  uuid: redlist_species
+  uuid: staging_external_models
 - all_upstream_blocks_executed: false
   color: null
   configuration:
+    dbt:
+      command: run
+    dbt_profile_target: mage
+    dbt_project_name: analytics
+    disable_query_preprocessing: false
+    export_write_policy: append
     file_source:
-      path: transformers/transform_redlist.py
-  downstream_blocks:
-  - store_redlist_species
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: python
-  name: transform_redlist
-  retry_config: null
-  status: not_executed
-  timeout: null
-  type: transformer
-  upstream_blocks:
-  - redlist_species
-  uuid: transform_redlist
-- all_upstream_blocks_executed: false
-  color: null
-  configuration:
-    file_source:
-      path: data_exporters/store_redlist_species.py
+      path: dbts/data_modelling.yaml
+    use_raw_sql: false
   downstream_blocks: []
   executor_config: null
   executor_type: local_python
   has_callback: false
-  language: python
-  name: store_redlist_species
+  language: yaml
+  name: data_modelling
   retry_config: null
   status: failed
   timeout: null
-  type: data_exporter
+  type: dbt
   upstream_blocks:
-  - transform_redlist
-  uuid: store_redlist_species
+  - staging_external_models
+  uuid: data_modelling
 cache_block_output_in_memory: false
 callbacks: []
 concurrency_config: {}
 conditionals: []
-created_at: '2024-04-20 06:54:43.158564+00:00'
+created_at: '2024-04-29 12:52:09.921714+00:00'
 data_integration: null
 description: null
 executor_config: {}
 executor_count: 1
 executor_type: null
 extensions: {}
-name: Endangered species
+name: DBT
 notification_config: {}
 remote_variables_dir: null
 retry_config: {}
@@ -74,9 +69,10 @@ settings:
   triggers: null
 spark_config: {}
 tags:
-- GCS
+- DBT
 type: python
-updated_at: '2024-04-29T12:49:20+00:00'
-uuid: endangered_species
+updated_at: '2024-04-29 13:10:11'
+uuid: dbt
+variables: {}
 variables_dir: /home/src/mage_data/orchestration
 widgets: []

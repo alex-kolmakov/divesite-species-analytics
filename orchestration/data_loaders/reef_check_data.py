@@ -16,7 +16,7 @@ def load_data_from_file(*args, **kwargs):
 
     Docs: https://docs.mage.ai/design/data-loading#fileio
     """
-    filepath = '/home/src/local_data/uae_reef_check.csv'
+    filepath = '/home/src/orchestration/local_data/uae_reef_check.csv'
 
     return FileIO().load(filepath)
 

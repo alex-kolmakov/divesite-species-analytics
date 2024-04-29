@@ -41,8 +41,7 @@ blocks:
   configuration:
     file_source:
       path: data_exporters/store_reef_check_gcs.py
-  downstream_blocks:
-  - stage_reef_check_model
+  downstream_blocks: []
   executor_config: null
   executor_type: local_python
   has_callback: false
@@ -55,31 +54,6 @@ blocks:
   upstream_blocks:
   - clean_reef_check
   uuid: store_reef_check_gcs
-- all_upstream_blocks_executed: true
-  color: null
-  configuration:
-    dbt:
-      command: run-operation
-    dbt_profile_target: mage
-    dbt_project_name: analytics
-    disable_query_preprocessing: false
-    export_write_policy: append
-    file_source:
-      path: dbts/stage_reef_check_model.yaml
-    use_raw_sql: false
-  downstream_blocks: []
-  executor_config: null
-  executor_type: local_python
-  has_callback: false
-  language: yaml
-  name: stage_reef_check_model
-  retry_config: null
-  status: executed
-  timeout: null
-  type: dbt
-  upstream_blocks:
-  - store_reef_check_gcs
-  uuid: stage_reef_check_model
 cache_block_output_in_memory: false
 callbacks: []
 concurrency_config: {}
@@ -102,9 +76,8 @@ spark_config: {}
 tags:
 - Occurences
 - GCS
-- DBT
 type: python
-updated_at: '2024-04-20 16:04:34'
+updated_at: '2024-04-29T12:56:59+00:00'
 uuid: reef_check
 variables_dir: /home/src/mage_data/orchestration
 widgets: []

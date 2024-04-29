@@ -1,3 +1,5 @@
+{{ config(materialized='table') }}
+
 SELECT 
     species, 
     SAFE_CAST(individualCount AS INT64) as individualcount, 
@@ -8,6 +10,6 @@ FROM {{ source('marine_data', 'reef_check_table') }}
 WHERE latitude BETWEEN {{env_var('LATTITUDE_BOTTOM')}} AND {{env_var('LATTITUDE_TOP')}}
 AND longitude BETWEEN {{env_var('LONGITUDE_LEFT')}} AND {{env_var('LONGITUDE_RIGHT')}}
 
-{% if var("development", default=true) %} 
+{% if var("development", default=False) %} 
     LIMIT 100 
 {% endif %}
