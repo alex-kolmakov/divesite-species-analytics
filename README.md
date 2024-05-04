@@ -7,18 +7,12 @@
 ## Articles 
 
 Project is described in depth on the following articles:
-  - [Part 1: Aiming for the stars (Problem statement)](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
-  - [Part 2: Ingesting data with Mage](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
+  - [Part 1: Aiming for the stars (Problem statement)](https://medium.com/@aleksandr.kolmakov/fa74cbe41465)
+  - Part 2: Ingesting data with Mage
   - Part 3: Clean, Enrich, Transform
   - Part 4: Data modelling
   - Part 5: Deployment and cost optimisation with GCP
   - Part 6: Final thoughts, lessons learnt and B-rolls of the development.
-
-
-## Articles 
-
-Project is described in depth on the following articles:
-  - [Data Engineering Zoom Camp | Capstone Project](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
 
 
 ## Project overview
@@ -27,12 +21,8 @@ Project is described in depth on the following articles:
 
 
 ### Architecture Diagram
+![diagram](https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/4b385807-daf9-4270-b225-1dc366ce2d1f)
 
-
-### Applied Tools & Technologies
-<div align="center">
-  <a href="https://www.docker.com/">Docker</a> • <a href="https://www.mage.ai/">Mage</a> • <a href="https://spark.apache.org/">Spark</a> • <a href="https://cloud.google.com/products/compute?hl=en">Google Cloud Virtual Machine</a> • <a href="https://cloud.google.com/storage/?hl=en">Google Cloud Storage</a> • <a href="https://cloud.google.com/bigquery?hl=en">Google BigQuery</a> • <a href="https://www.terraform.io/">Terraform</a> • <a href="https://lookerstudio.google.com/">Looker Studio</a>
-</div>
 
 
 ### Pipelines
@@ -64,13 +54,13 @@ Project mimics medallion architecture with the following layers:
 - Invasive species near divesites
 - Endangered species near divesites 
 - Top 20 invasive species near divesites 
+<img width="1265" alt="Screenshot 2024-05-04 at 2 50 13 PM" src="https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/3e01401b-4dce-41f4-af46-ee03aae6be33">
 
-<img width="1253" alt="Screenshot 2024-04-23 at 2 15 41 PM" src="https://github.com/Feanaur/divesite-species-analytics/assets/3127175/7bcb7d82-53bc-4dbc-8da4-b08fb1ec846a">
 
 
 ## Setup
 
-For the setup please proceed to the [SETUP.md](documentation/SETUP.md) file.
+For the setup please proceed to the [SETUP.md](documentation/setup.md).
 
 
 
