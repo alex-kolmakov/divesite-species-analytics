@@ -24,10 +24,6 @@ Project is described in depth on the following articles:
 ![diagram](https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/4b385807-daf9-4270-b225-1dc366ce2d1f)
 
 
-
-### Pipelines
-
-
 ### Data modelling
 
 Project mimics medallion architecture with the following layers:
