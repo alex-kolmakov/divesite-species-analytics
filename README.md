@@ -8,7 +8,7 @@
 
 Project is described in depth on the following articles:
   - [Part 1: Aiming for the stars (Problem statement)](https://medium.com/@aleksandr.kolmakov/fa74cbe41465)
-  - Part 2: Ingesting data with Mage
+  - [Part 2: Ingesting data with Mage](https://medium.com/@aleksandr.kolmakov/divesite-fauna-analytics-part-2-ingesting-data-with-mage-fc59987585b6)
   - Part 3: Clean, Enrich, Transform
   - Part 4: Data modelling
   - Part 5: Deployment and cost optimisation with GCP
