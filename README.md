@@ -46,7 +46,7 @@ Project mimics medallion architecture with the following layers:
 | geography      | GEOGRAPHY   | BigQuery type of geography marker: POINT()                |
 | source         | STRING      | Source dataset from which occurence originated from                |
 | is_invasive    | BOOLEAN     | Species considered invasive               |
-| is_endangered  | BOOLEAN     | Species considered endangere             |
+| is_endangered  | BOOLEAN     | Species considered endangered            |
 
 ## [Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ)
 
