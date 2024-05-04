@@ -1,94 +1,78 @@
 
 # Divesite Species Analytics Data Pipeline 
 
-### Data Engineering Zoom Camp | 2024 Cohort | Capstone Project 
-
-_**Author | Aleksandr Kolmakov**_
+>This project started as my attempt to apply gathered knowledge to undestand how can I spot in advance the invasive and endangered species near the local divesites that frequent.
 
 
+## Articles 
 
-## Table of Contents
-<a href="#articles">Articles</a> • 
-<a href="#applied-tools--technologies">Applied Tools & Technologies</a> •
-<a href="#architecture-diagram">Architecture Diagram</a> • 
-<a href="#terraform-infrastructure-as-code">Terraform Infrastructure as Code</a> •
-<a href="#testing">Testing</a> •
-<a href="#dashboard">Dashboard</a> •
-<a href="#further-ideas--next-steps">Further Ideas & Next Steps</a> •
-<a href="#licensing">Licensing</a> •
-<a href="#contributing--support">Contributing & Support</a> •
-<a href="#acknowledgements--credits">Acknowledgements & Credits</a>
+Project is described in depth on the following articles:
+  - [Part 1: Aiming for the stars (Problem statement)](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
+  - [Part 2: Ingesting data with Mage](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
+  - Part 3: Clean, Enrich, Transform
+  - Part 4: Data modelling
+  - Part 5: Deployment and cost optimisation with GCP
+  - Part 6: Final thoughts, lessons learnt and B-rolls of the development.
 
 
-### _Articles_ 
+## Articles 
 
 Project is described in depth on the following articles:
   - [Data Engineering Zoom Camp | Capstone Project](https://www.linkedin.com/pulse/data-engineering-zoom-camp-capstone-project-aleksandr-kolmakov/)
 
 
-### _Applied Tools & Technologies_
+## Project overview
+
+>Project aims to combine several scientific occurence datasets to provide ability to analyze them through the lens of specific occurence marker - like "invasive" or "endangered"
+
+
+### Architecture Diagram
+
+
+### Applied Tools & Technologies
 <div align="center">
   <a href="https://www.docker.com/">Docker</a> • <a href="https://www.mage.ai/">Mage</a> • <a href="https://spark.apache.org/">Spark</a> • <a href="https://cloud.google.com/products/compute?hl=en">Google Cloud Virtual Machine</a> • <a href="https://cloud.google.com/storage/?hl=en">Google Cloud Storage</a> • <a href="https://cloud.google.com/bigquery?hl=en">Google BigQuery</a> • <a href="https://www.terraform.io/">Terraform</a> • <a href="https://lookerstudio.google.com/">Looker Studio</a>
 </div>
 
 
-
-### Project Folder Structure
-```bash
-.
-├── README.md                    -- this file                
-├── Dockerfile                   -- file to use for building a Docker image
-├── /apps                        -- folder for deployment, used by Dockerfile
-    ├── home.py                  -- entrypoint of streamlit web-service
-    ├── /pages                   -- folder for sites' subpages
-        ├── about.py             -- an about me page
-        ├── dv.bin               -- the processed and scaled data DictVectorizer
-        ├── model.bin            -- the final model used in web app  
-        ├── eda.py               -- samples of EDA done
-        ├── predict.py           -- the heart of the project
-├── /artifacts                   -- folder for images and other artifacts
-                                    used in this report and this project
-├── /data                        -- houses data file(s)  
-├── /src                         -- project's python scripts
-    ├── config.py                -- global constants
-    ├── clf_catboost.py          -- code to produce catboost.bin
-    ├── clf_histboost.py         -- code to produce model.bin 
-                                   (output then moved to /app/pages)
-    ├── data_loader.py           -- code to read data files
-    ├── data_preprocessor.py     -- code to handle preprocessing of data
-    ├── data_feature_builder.py  -- code to create new features
-    ├── modeler.py               -- code related to models
-    ├── predict.py               -- code to test flask app locally
-    ├── predict_test.py          -- code to test flask web-service locally
-
-```
+### Pipelines
 
 
+### Data modelling
 
+Project mimics medallion architecture with the following layers:
+
+- **Seabed** - contains raw external data from the sources.
+- **Coral** - contains joined and cleaned data for individual dimensions and facts.
+- **Reef** - final aggregated data for the analytics.
+
+
+### Main Occurences model:
+| Column Name    | Data Type   |   Description     |
+|----------------|-------------|-------------------|
+| species        | STRING      | String representation of the species name.              |
+| individualcount| INTEGER     | Amount of individauls per  1 sighting (e.g. "I saw 5 ducks")              |
+| eventdate      | TIMESTAMP   | Timestamp of the occurence               |
+| geography      | GEOGRAPHY   | BigQuery type of geography marker: POINT()                |
+| source         | STRING      | Source dataset from which occurence originated from                |
+| is_invasive    | BOOLEAN     | Species considered invasive               |
+| is_endangered  | BOOLEAN     | Species considered endangere             |
+
+## [Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ)
+
+- Divesites and observations distribution between used sources
+- Invasive species near divesites
+- Endangered species near divesites 
+- Top 20 invasive species near divesites 
 
 <img width="1253" alt="Screenshot 2024-04-23 at 2 15 41 PM" src="https://github.com/Feanaur/divesite-species-analytics/assets/3127175/7bcb7d82-53bc-4dbc-8da4-b08fb1ec846a">
 
 
+## Setup
 
-This project uses mage.ai to orchestrate data ingestion and dbt runs for a marine species analytics project. The data ingestion script fetches data from the web and stores it in Google Cloud Storage. The dbt models transform the raw data into a structured format that can be used for analysis.
-
-
-## Pipeline preview
-
-### Data ingestion pipelines
-
-### DBT models
-
-## Data modelling
-Schema here and then link to the article 
+For the setup please proceed to the [SETUP.md](documentation/SETUP.md) file.
 
 
 
-## Dashboard
-
-[Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ) was done in Looker Studio and has 3 pages:
-- Divesites view
-- Invasive species near divesites view
-- Endangered species near divesites view 
 
 
