@@ -20,6 +20,11 @@ Project is described in depth on the following articles:
 >Project aims to combine several scientific occurence datasets to provide ability to analyze them through the lens of specific occurence marker - like "invasive" or "endangered"
 
 
+### Setup
+
+For the setup please proceed to the [documentation](documentation/setup.md).
+
+
 ### Architecture Diagram
 ![diagram](https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/4b385807-daf9-4270-b225-1dc366ce2d1f)
 
@@ -53,12 +58,17 @@ Project mimics medallion architecture with the following layers:
 <img width="1265" alt="Screenshot 2024-05-04 at 2 50 13 PM" src="https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/3e01401b-4dce-41f4-af46-ee03aae6be33">
 
 
+## Acknowledgements & Credits & Support
 
-## Setup
+If you're interested in contributing to this project, need to report issues or submit pull requests, please get in touch via 
+- [GitHub](https://github.com/alex-kolmakov)
+- [LinkedIn](https://linkedin.com/in/aleksandr-kolmakov)
 
-For the setup please proceed to the [documentation](documentation/setup.md).
 
+### Acknowledgements
+Acknowledgement to #DataTalksClub for mentoring us through the Data Engineering Zoom Camp over the last 10 weeks. It has been a privilege to take part in the Spring '24 Cohort, go and check them out!
 
+![image](https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/d6504180-31a9-4cb7-8cd0-26cd2d0a12ad)
 
 
 
