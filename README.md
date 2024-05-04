@@ -12,7 +12,7 @@ Project is described in depth on the following articles:
   - Part 3: Clean, Enrich, Transform
   - Part 4: Data modelling
   - Part 5: Deployment and cost optimisation with GCP
-  - Part 6: Final thoughts, lessons learnt and B-rolls of the development.
+  - Part 6: Final thoughts, lessons learned and B-rolls of the development.
 
 
 ## Project overview
