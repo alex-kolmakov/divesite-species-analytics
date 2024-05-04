@@ -60,7 +60,7 @@ Project mimics medallion architecture with the following layers:
 
 ## Setup
 
-For the setup please proceed to the [SETUP.md](documentation/setup.md).
+For the setup please proceed to the [documentation](documentation/setup.md).
 
 
 
