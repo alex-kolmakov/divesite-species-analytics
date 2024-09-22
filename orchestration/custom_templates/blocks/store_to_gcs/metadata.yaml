@@ -1,0 +1,9 @@
+block_type: data_exporter
+color: null
+configuration: null
+description: stores dataframe in google cloud storage
+language: python
+name: STORE
+pipeline: {}
+tags: []
+user: {}

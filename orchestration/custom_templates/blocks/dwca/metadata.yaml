@@ -1,0 +1,11 @@
+block_type: transformer
+color: null
+configuration: null
+description: 'Opens darwin core archive format to dataframe.
+
+  Allows to fix a problem of duplicate Author names.'
+language: python
+name: DWCA
+pipeline: {}
+tags: []
+user: {}

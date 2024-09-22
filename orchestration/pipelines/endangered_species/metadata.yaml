@@ -1,66 +1,60 @@
 blocks:
 - all_upstream_blocks_executed: true
   color: null
-  configuration:
-    file_source:
-      path: data_loaders/redlist_species.py
+  configuration: {}
   downstream_blocks:
-  - transform_redlist
+  - parse_iucn_archive
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
-  name: redlist_species
+  name: download_iucn_archive
   retry_config: null
   status: executed
   timeout: null
   type: data_loader
   upstream_blocks: []
-  uuid: redlist_species
+  uuid: download_iucn_archive
 - all_upstream_blocks_executed: true
   color: null
-  configuration:
-    file_source:
-      path: transformers/transform_redlist.py
+  configuration: {}
   downstream_blocks:
-  - store_redlist_species
+  - store_redlist
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
-  name: transform_redlist
+  name: parse_iucn_archive
   retry_config: null
-  status: not_executed
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
-  - redlist_species
-  uuid: transform_redlist
-- all_upstream_blocks_executed: false
+  - download_iucn_archive
+  uuid: parse_iucn_archive
+- all_upstream_blocks_executed: true
   color: null
-  configuration:
-    file_source:
-      path: data_exporters/store_redlist_species.py
+  configuration: {}
   downstream_blocks: []
   executor_config: null
   executor_type: local_python
   has_callback: false
   language: python
-  name: store_redlist_species
+  name: store_redlist
   retry_config: null
-  status: failed
+  status: executed
   timeout: null
   type: data_exporter
   upstream_blocks:
-  - transform_redlist
-  uuid: store_redlist_species
+  - parse_iucn_archive
+  uuid: store_redlist
 cache_block_output_in_memory: false
 callbacks: []
 concurrency_config: {}
 conditionals: []
 created_at: '2024-04-20 06:54:43.158564+00:00'
 data_integration: null
-description: null
+description: Pulls data from IUCN dataset.
 executor_config: {}
 executor_count: 1
 executor_type: null
@@ -74,9 +68,13 @@ settings:
   triggers: null
 spark_config: {}
 tags:
-- GCS
+- LOAD
 type: python
-updated_at: '2024-05-01 14:38:32'
 uuid: endangered_species
+variables:
+  DATASET_PARQUET_FILENAME: redlist.parquet
+  DOWNLOADED_FILENAME: redlist.zip
+  ENV_URL_TO_DOWNLOAD: REDLIST_DWCA_ARCHIVE
+  REMOVE_DUPLICATE_AUTHORS: 'True'
 variables_dir: /home/src/mage_data/orchestration
 widgets: []

@@ -19,7 +19,7 @@ blocks:
   language: yaml
   name: staging_external_models
   retry_config: null
-  status: updated
+  status: failed
   timeout: null
   type: dbt
   upstream_blocks: []
@@ -71,7 +71,6 @@ spark_config: {}
 tags:
 - DBT
 type: python
-updated_at: '2024-04-29 13:10:11'
 uuid: dbt
 variables: {}
 variables_dir: /home/src/mage_data/orchestration
