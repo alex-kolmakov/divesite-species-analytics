@@ -5,6 +5,7 @@ blocks:
     dbt:
       command: run-operation
     dbt_profile_target: mage
+    dbt_profiles_file_path: analytics/profiles.yml
     dbt_project_name: analytics
     disable_query_preprocessing: false
     export_write_policy: append

@@ -17,7 +17,7 @@ def download_file(*args, **kwargs):
         download(
             url, 
             downloaded_filename, 
-            chunk_size=8192,
+            chunk_size=4098,
             update_threshold=1024*1024*1024
         )
     return downloaded_filename

@@ -10,12 +10,12 @@ blocks:
   language: python
   name: download_obis_parquet
   retry_config: null
-  status: executed
+  status: failed
   timeout: null
   type: data_loader
   upstream_blocks: []
   uuid: download_obis_parquet
-- all_upstream_blocks_executed: true
+- all_upstream_blocks_executed: false
   color: null
   configuration: {}
   downstream_blocks:
@@ -26,7 +26,7 @@ blocks:
   language: python
   name: parse_obis_parquet
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: transformer
   upstream_blocks:
@@ -42,7 +42,7 @@ blocks:
   language: python
   name: store_obis_parquet
   retry_config: null
-  status: failed
+  status: executed
   timeout: null
   type: data_exporter
   upstream_blocks:

@@ -5,18 +5,23 @@ sources:
     description: 'This is the main source for marine data'
     database: gbif-412615
     loader: gcloud storage
-    
     tables:
-      - name: invasive_species_table
+      - name: invasive_table
         description: 'Table containing data about invasive species'
         external:
-          location: 'gs://marine_data_412615/invasives.parquet'
+          location: 'gs://marine_data_412615/invasive.parquet'
           options:
             format: parquet
-      - name: redlist_species_table
+      - name: redlist_table
         description: 'Table containing data about red-listed species'
         external:
-          location: 'gs://marine_data_412615/redlist_species.parquet'
+          location: 'gs://marine_data_412615/redlist.parquet'
+          options:
+            format: parquet
+      - name: worms_table
+        description: 'Table containing WoRMS data'
+        external:
+          location: 'gs://marine_data_412615/worms.parquet'
           options:
             format: parquet
       - name: divesites_table
@@ -29,12 +34,5 @@ sources:
         description: 'Table containing data from the Ocean Biogeographic Information System (OBIS)'
         external:
           location: 'gs://marine_data_412615/obis.parquet'
-          options:
-            format: parquet
-  
-      - name: reef_check_table
-        description: 'Table containing data from the Reef Check Foundation'
-        external:
-          location: 'gs://marine_data_412615/reef_check.parquet'
           options:
             format: parquet

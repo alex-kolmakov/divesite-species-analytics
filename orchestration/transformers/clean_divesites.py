@@ -8,7 +8,7 @@ if 'test' not in globals():
 def transform(divesites_dataframe, *args, **kwargs):
 
     df = divesites_dataframe.dropna(subset=['latitude', 'longitude', 'title'])
-    # df = df.drop(columns=['images'])
+    df = df.drop(columns=['images'])
     return df
 
 

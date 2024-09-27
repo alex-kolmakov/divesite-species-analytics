@@ -1,6 +1,7 @@
 import pyarrow.parquet as pq
 import pyarrow as pa
 from tqdm import tqdm
+import os
 
 if 'transformer' not in globals():
     from mage_ai.data_preparation.decorators import transformer
@@ -21,7 +22,7 @@ def transform(data, *args, **kwargs):
         "species", "individualCount", "eventDate", "eventTime",
         "year", "month", "day", "decimalLongitude", "decimalLatitude"
     ]
-    input_filename = f"/home/src/{kwargs.get('DOWNLOADED_FILENAME')}"  # Input file path
+    input_filename = kwargs.get('DOWNLOADED_FILENAME')  # Input file path
     output_filename = 'output_obis.parquet'  # Output file path
 
     # Get the progress bar step size from kwargs, or default to 1

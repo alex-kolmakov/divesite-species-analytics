@@ -2,7 +2,7 @@
 version: 2
 
 models:
-  - name: stg_gbif_occurences
+  - name: gbif_occurrences
     description: |
       GBIF (Global Biodiversity Information Facility) is an international network and research infrastructure that provides open access to biodiversity data. 
       It retrieves information about the species, individual count, event date, geographical location, and source from the `bigquery-public-data.gbif.occurrences` table. 
@@ -12,28 +12,28 @@ models:
     columns:
       - name: species
         description: "The species of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: individualcount
         description: "Count of individuals for the species. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: geography
         description: "The geographical location of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: eventdate
         description: "The date of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: source
         description: "The source of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               values: ['GBIF']
 
-  - name: stg_obis_occurences
+  - name: obis_occurrences
     description: |
       OBIS (Ocean Biogeographic Information System) is a global open-access data and information clearing-house on marine biodiversity. 
       It retrieves information about the species, individual count, event date, geographical location, and source from the `marine_data.obis_table` table.
@@ -44,53 +44,38 @@ models:
     columns:
       - name: species
         description: "The species of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: individualcount
         description: "Count of individuals for the species. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: geography
         description: "The geographical location of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: eventdate
         description: "The date of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
       - name: source
         description: "The source of the occurrence. This field is required and must not be null."
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               values: ['OBIS']
 
-  - name: stg_reef_check_occurences
+  - name: divesites
     description: |
-      Reef Check foundation https://www.reefcheck.org/ is a community science project that collects data on the health and status of coral reefs worldwide. 
-      The `geography` column is derived from the `longitude` and `latitude` columns using the `ST_GEOGPOINT` function. 
-      The data is limited to 100 when in development mode. This is the only way to avoid high data processing costs.
-      The latitude and longitude filters ensure that only occurrences within the specified range are included.
+      This model retrieves information about dive sites, including their titles and geographical locations, from the `marine_data.divesites_table` table.
+      The `geography` column is derived from the `longitude` and `latitude` columns using the `ST_GEOGPOINT` function.
+      The data is filtered to include only rows where the title is not null.
     columns:
-      - name: species
-        description: "The species of the occurrence. This field is required and must not be null."
-        tests:
-          - not_null
-      - name: individualcount
-        description: "Count of individuals for the species. This field is required and must not be null."
-        tests:
+      - name: title
+        description: "The title of the dive site. This field is required and must not be null."
+        data_tests:
           - not_null
       - name: geography
-        description: "The geographical location of the occurrence. This field is required and must not be null."
-        tests:
+        description: "The geographical location of the dive site. This field is required and must not be null."
+        data_tests:
           - not_null
-      - name: eventdate
-        description: "The date of the occurrence. This field is required and must not be null."
-        tests:
-          - not_null
-      - name: source
-        description: "The source of the occurrence. This field is required and must not be null."
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['REEF_CHECK']
