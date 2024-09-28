@@ -14,7 +14,9 @@ SELECT
         WHEN redlist.scientificName IS NOT NULL THEN 'endangered'
         WHEN invasive.scientificName IS NOT NULL THEN 'invasive'
         ELSE 'normal'
-    END AS species_type
+    END AS species_type,
+    null as Common_name,
+    null as Image_URL
 FROM unique_species AS spec
 LEFT JOIN {{ source('marine_data', 'redlist_table') }} AS redlist
     ON spec.species = redlist.scientificName

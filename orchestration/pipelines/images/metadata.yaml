@@ -26,13 +26,13 @@ blocks:
   language: python
   name: pull_images_and_common_names
   retry_config: null
-  status: updated
+  status: executed
   timeout: null
   type: custom
   upstream_blocks:
   - species
   uuid: pull_images_and_common_names
-- all_upstream_blocks_executed: false
+- all_upstream_blocks_executed: true
   color: null
   configuration: {}
   downstream_blocks: []
