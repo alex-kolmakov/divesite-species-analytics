@@ -37,7 +37,6 @@ def show_occurrences(species):
 
 def display_species_list(df):
     """Display species list as a mobile-friendly list."""
-    st.subheader("Search Results")
 
     if not df.empty:
         for idx, row in df.iterrows():
