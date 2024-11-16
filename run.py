@@ -117,7 +117,7 @@ def get_species(search_term):
     query = """
         SELECT species, Image_URL, Common_name
         FROM `gbif-412615.marine_data.species`
-        WHERE Common_name LIKE @search_term
+        WHERE SEARCH(Common_name, @search_term)
         LIMIT 5
     """
     search_term = search_term.lower()
@@ -163,7 +163,7 @@ def get_occurrences(species):
         SELECT
             ST_Y(geography) AS latitude,
             ST_X(geography) AS longitude
-        FROM `gbif-412615.marine_data.occurrences`
+        FROM `gbif-412615.marine_data.occurences`
         WHERE species = @species
     """
     occurrence_job_config = bigquery.QueryJobConfig(
