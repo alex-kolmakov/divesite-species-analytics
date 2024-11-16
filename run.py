@@ -163,7 +163,7 @@ def get_occurrences(species):
         SELECT
             ST_Y(geography) AS latitude,
             ST_X(geography) AS longitude
-        FROM `gbif-412615.marine_data.occurences`
+        FROM `gbif-412615.marine_data.clustered_occurences`
         WHERE species = @species
     """
     occurrence_job_config = bigquery.QueryJobConfig(
