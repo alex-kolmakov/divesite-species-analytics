@@ -14,7 +14,7 @@ def main():
     st.title("Species Search")
 
     # Input field for search term
-    search_term = st.text_input("Type a name or a known common part of their description:")
+    search_term = st.text_input("Name or a known common part of description:")
 
     if search_term:
         with st.spinner("Searching for species..."):
