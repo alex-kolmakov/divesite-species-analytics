@@ -1,9 +1,12 @@
 import streamlit as st
 from google.cloud import bigquery
 import pandas as pd
+from google.oauth2 import service_account
 
-# Set up BigQuery client (ensure authentication is set up)
-client = bigquery.Client()
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"]
+)
+client = bigquery.Client(credentials=credentials)
 
 def main():
     st.title("Species Search Application")
