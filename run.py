@@ -2,7 +2,9 @@ import streamlit as st
 from google.cloud import bigquery
 import pandas as pd
 from google.oauth2 import service_account
+import validators
 
+# Set up BigQuery client with credentials
 credentials = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"]
 )
@@ -19,8 +21,8 @@ def main():
             df = get_species(search_term)
 
         if not df.empty:
-            # Display species list as a table
-            display_species_table(df)
+            # Display species list as a mobile-friendly list
+            display_species_list(df)
         else:
             st.write("No matching species found.")
 
@@ -33,31 +35,34 @@ def show_occurrences(species):
     """Function to update the selected species in session state."""
     st.session_state.selected_species = species
 
-def display_species_table(df):
-    """Display species list as a table with columns 'Name', 'Image', 'Description'."""
+def display_species_list(df):
+    """Display species list as a mobile-friendly list."""
     st.subheader("Search Results")
 
     if not df.empty:
-        # Create a container to hold the table
-        table_container = st.container()
-        # Create the header
-        cols = table_container.columns([2, 2, 4, 2])  # Adjust column widths
-        cols[0].write("**Name**")
-        cols[1].write("**Image**")
-        cols[2].write("**Description**")
-        cols[3].write("")
-
         for idx, row in df.iterrows():
-            cols = table_container.columns([2, 2, 4, 2])  # Adjust column widths
-            cols[0].write(row['species'])
-            cols[1].image(row['Image_URL'], width=100)
-            cols[2].write(row['Common_name'])
-            cols[3].button(
-                "Show Occurrences",
-                key=f"occurrences_{idx}",
-                on_click=show_occurrences,
-                args=(row['species'],)
-            )
+            with st.container():
+                st.write(f"### {row['species']}")
+                # Display trimmed Common_name with 'Read more' option
+                if pd.notnull(row['Common_name']):
+                    common_name = str(row['Common_name'])
+                    if len(common_name) > 1000:
+                        st.write(common_name[:1000] + "...")
+                        if st.button("Read more", key=f"read_more_{idx}"):
+                            st.write(common_name)
+                    else:
+                        st.write(common_name)
+                # Check if Image_URL is a valid URL
+                if is_valid_image_url(row['Image_URL']):
+                    st.image(row['Image_URL'], use_column_width=True)
+                # 'Show Occurrences' button
+                st.button(
+                    "Show Occurrences",
+                    key=f"occurrences_{idx}",
+                    on_click=show_occurrences,
+                    args=(row['species'],)
+                )
+                st.markdown("---")
     else:
         st.write("No matching species found.")
 
@@ -68,9 +73,18 @@ def display_species_occurrences(species):
     if not species_df.empty:
         species_row = species_df.iloc[0]
         st.header(species_row['species'])
-        st.image(species_row['Image_URL'])
-        st.write(species_row['Common_name'])
-
+        # Display trimmed Common_name with 'Read more' option
+        if pd.notnull(species_row['Common_name']):
+            common_name = str(species_row['Common_name'])
+            if len(common_name) > 1000:
+                st.write(common_name[:1000] + "...")
+                if st.button("Read more", key="read_more_full"):
+                    st.write(common_name)
+            else:
+                st.write(common_name)
+        # Check if Image_URL is a valid URL
+        if is_valid_image_url(species_row['Image_URL']):
+            st.image(species_row['Image_URL'])
         # Fetch and display occurrences
         with st.spinner("Fetching occurrences..."):
             occurrence_df = get_occurrences(species)
@@ -87,6 +101,17 @@ def display_species_occurrences(species):
     else:
         st.error("Species details not found.")
 
+def is_valid_image_url(url):
+    """Check if the URL is valid and points to an image."""
+    if pd.notnull(url) and url.strip() != '':
+        url = url.strip()
+        # Check if URL is valid
+        if validators.url(url):
+            # Optional: Check if URL ends with common image extensions
+            if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.svg']):
+                return True
+    return False
+
 @st.cache_data
 def get_species(search_term):
     """Query BigQuery to get species matching the search term."""
@@ -94,7 +119,7 @@ def get_species(search_term):
         SELECT species, Image_URL, Common_name
         FROM `gbif-412615.marine_data.species`
         WHERE Common_name LIKE @search_term
-        LIMIT 10
+        LIMIT 5
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
@@ -105,7 +130,7 @@ def get_species(search_term):
         query_job = client.query(query, job_config=job_config)
         df = query_job.to_dataframe()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"An error occurred while fetching species: {e}")
         df = pd.DataFrame()
     return df
 
@@ -127,7 +152,7 @@ def get_species_by_name(species):
         query_job = client.query(query, job_config=job_config)
         df = query_job.to_dataframe()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"An error occurred while fetching species details: {e}")
         df = pd.DataFrame()
     return df
 
@@ -138,7 +163,7 @@ def get_occurrences(species):
         SELECT
             ST_Y(geography) AS latitude,
             ST_X(geography) AS longitude
-        FROM `gbif-412615.marine_data.occurences`
+        FROM `gbif-412615.marine_data.occurrences`
         WHERE species = @species
     """
     occurrence_job_config = bigquery.QueryJobConfig(
@@ -150,7 +175,7 @@ def get_occurrences(species):
         occurrence_job = client.query(occurrence_query, job_config=occurrence_job_config)
         occurrence_df = occurrence_job.to_dataframe()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"An error occurred while fetching occurrences: {e}")
         occurrence_df = pd.DataFrame()
     return occurrence_df
 
