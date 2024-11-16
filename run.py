@@ -11,10 +11,10 @@ credentials = service_account.Credentials.from_service_account_info(
 client = bigquery.Client(credentials=credentials)
 
 def main():
-    st.title("Species Search Application")
+    st.title("Species Search")
 
     # Input field for search term
-    search_term = st.text_input("Search for species description")
+    search_term = st.text_input("Type a name or a known common part of their description:")
 
     if search_term:
         with st.spinner("Searching for species..."):
