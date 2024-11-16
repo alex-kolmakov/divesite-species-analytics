@@ -5,3 +5,4 @@ aiohttp
 duckdb
 requests
 tqdm
+google-cloud-bigquery
