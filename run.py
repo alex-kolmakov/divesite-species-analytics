@@ -121,6 +121,7 @@ def get_species(search_term):
         WHERE Common_name LIKE @search_term
         LIMIT 5
     """
+    search_term = search_term.lower()
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("search_term", "STRING", f"%{search_term}%")
