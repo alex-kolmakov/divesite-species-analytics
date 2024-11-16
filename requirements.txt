@@ -6,3 +6,4 @@ duckdb
 requests
 tqdm
 google-cloud-bigquery
+db-dtypes
