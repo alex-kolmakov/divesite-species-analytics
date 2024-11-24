@@ -138,7 +138,7 @@ def display_species_occurrences(species):
             view_state = pdk.ViewState(
                 latitude=occurrence_df["latitude"].mean(),
                 longitude=occurrence_df["longitude"].mean(),
-                zoom=1,
+                zoom=3,
                 pitch=40.5
             )
 
