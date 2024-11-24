@@ -5,7 +5,7 @@ WITH species_counts AS (
         dive_site,
         species,
         COUNT(*) AS sighting_count
-    FROM {{ ref('near_divesite_occurrences') }}
+    FROM {{ ref('near_dive_site_occurrences') }}
     GROUP BY 
         dive_site,
         species

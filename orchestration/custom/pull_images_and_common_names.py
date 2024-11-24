@@ -54,17 +54,14 @@ async def get_species_info_from_wikipedia(scientific_name):
                 # Extract the page details
                 page_info = next(iter(pages.values()))
 
-                # Extract the Common_name from the first sentence of the extract
                 extract_text = page_info.get('extract', '')
                 image_url = page_info.get('thumbnail', {}).get('source', 'Image not available')
 
                 common_name = None
                 if extract_text:
-                    # Use the first sentence of the extract as the Common_name
-                    first_sentence = extract_text.split('.')[0]
 
                     # Remove HTML tags using BeautifulSoup
-                    common_name = BeautifulSoup(first_sentence, "html.parser").get_text().strip()
+                    common_name = BeautifulSoup(extract_text, "html.parser").get_text().strip()
 
                 return common_name, image_url
         except aiohttp.ClientConnectionError as e:
@@ -80,10 +77,10 @@ async def get_species_info_from_wikipedia(scientific_name):
 async def process_missing_species_info(df):
     # Filter rows where 'Common_name' or 'Image_URL' are missing (NaN)
     missing_df = df[df['Common_name'].isna() | df['Image_URL'].isna()]
-    print(f"Full shape {df.shape} vs {missing_df.shape}")
+    print(f"Rows to go - {missing_df.shape[0]}")
     if missing_df.empty:
-        print("All species already processed.")
         return df  # Return the original DataFrame if nothing is missing
+    missing_df = missing_df.head(500)
     
     tasks = []
     for index, row in missing_df.iterrows():
@@ -94,10 +91,15 @@ async def process_missing_species_info(df):
     # Gather results with a progress bar
     results = await tqdm.gather(*tasks)
 
-    # Update only the rows with missing data
     missing_df[['Common_name', 'Image_URL']] = pd.DataFrame(results, index=missing_df.index, columns=['Common_name', 'Image_URL'])
 
-    # Update the original DataFrame with the new information
+    # Step 1: Identify indices to drop
+    indices_to_drop = missing_df[missing_df[['Common_name', 'Image_URL']].isnull().all(axis=1)].index
+
+    # Step 2: Drop these indices from df
+    df = df.drop(indices_to_drop)
+
+    # Step 3: Update df with the remaining data from missing_df
     df.update(missing_df)
     
     return df

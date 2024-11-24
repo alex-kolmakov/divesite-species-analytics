@@ -1,9 +1,10 @@
-{{ config(materialized='table') }}
+{{ config(
+    materialized='table')
+}}
 
 WITH unique_species AS (
     SELECT DISTINCT species
-    FROM {{ ref('near_divesite_occurrences') }}
-    WHERE species IS NOT NULL
+    FROM {{ ref('clustered_occurrences') }}
 )
 
 SELECT

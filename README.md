@@ -1,23 +1,7 @@
 
 # Divesite Species Analytics Data Pipeline 
 
->This project started as my attempt to apply gathered knowledge to undestand how can I spot in advance the invasive and endangered species near the local divesites that frequent.
-
-
-## Articles 
-
-Project is described in depth on the following articles:
-  - [Part 1: Aiming for the stars (Problem statement)](https://medium.com/@aleksandr.kolmakov/fa74cbe41465)
-  - [Part 2: Ingesting data with Mage](https://medium.com/@aleksandr.kolmakov/divesite-fauna-analytics-part-2-ingesting-data-with-mage-fc59987585b6)
-  - Part 3: Clean, Enrich, Transform
-  - Part 4: Data modelling
-  - Part 5: Deployment and cost optimisation with GCP
-  - Part 6: Final thoughts, lessons learned and B-rolls of the development.
-
-
-## Project overview
-
->Project aims to combine several scientific occurence datasets to provide ability to analyze them through the lens of specific occurence marker - like "invasive" or "endangered"
+Project aims to combine several scientific occurence datasets to provide ability to analyze them through the species distribution and divesite proximity.
 
 
 ### Setup
@@ -33,9 +17,9 @@ For the setup please proceed to the [documentation](documentation/setup.md).
 
 Project mimics medallion architecture with the following layers:
 
-- **Seabed** - contains raw external data from the sources.
-- **Coral** - contains joined and cleaned data for individual dimensions and facts.
-- **Reef** - final aggregated data for the analytics.
+- **Substrate** - contains raw external data from the sources.
+- **Skeleton** - contains joined and cleaned data for individual dimensions and facts.
+- **Coral** - final aggregated data for the analytics.
 
 
 ### Main Occurences model:

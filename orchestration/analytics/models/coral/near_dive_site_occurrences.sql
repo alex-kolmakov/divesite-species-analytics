@@ -12,7 +12,7 @@ SELECT
         PARTITION BY occ.event_date 
         ORDER BY ST_Distance(occ.geography, divesites.geography)
     ) AS proximity_rank
-FROM {{ ref('occurences') }} AS occ
+FROM {{ ref('occurrences') }} AS occ
 CROSS JOIN {{ ref('divesites') }} AS divesites
 WHERE ST_DWithin(
     occ.geography, 

@@ -7,7 +7,7 @@ WITH counts AS (
         event_date,
         FORMAT_DATE('%b', event_date) AS month,
         COUNT(*) AS sighting_count
-    FROM {{ ref('near_divesite_occurrences') }} AS occ
+    FROM {{ ref('near_dive_site_occurrences') }} AS occ
     GROUP BY 
         dive_site,
         species,

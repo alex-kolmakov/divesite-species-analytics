@@ -3,41 +3,75 @@ from google.cloud import bigquery
 import pandas as pd
 from google.oauth2 import service_account
 import validators
+import pydeck as pdk
 
-# Set up BigQuery client with credentials
+# Initialize BigQuery client
 credentials = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"]
 )
 client = bigquery.Client(credentials=credentials)
+st.set_page_config(page_title="Marine species")
 
 def main():
-    st.title("Species Search")
+    st.title("Marine species search")
 
-    # Input field for search term
-    search_term = st.text_input("Name or a known common part of description:")
+    # Initialize session state variables
+    if 'show_species_list' not in st.session_state:
+        st.session_state.show_species_list = False
+    if 'selected_species' not in st.session_state:
+        st.session_state.selected_species = None
 
-    if search_term:
-        with st.spinner("Searching for species..."):
-            df = get_species(search_term)
 
-        if not df.empty:
-            # Display species list as a mobile-friendly list
-            display_species_list(df)
-        else:
-            st.write("No matching species found.")
+    # Use st.form to align text input and button
+    with st.form('search_form'):
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            search_term = st.text_input(
+                "",
+                value=st.session_state.get('search_term', ''),
+                placeholder="Name or a known common part of description",
+                label_visibility='collapsed',
+                key='search_term_input'
+            )
+        with col2:
+            search_button = st.form_submit_button("Search")
 
-    # Check if a species has been selected to show occurrences
-    if 'selected_species' in st.session_state:
-        species_name = st.session_state.selected_species
-        display_species_occurrences(species_name)
+        if search_button and search_term:
+            st.session_state.search_term = search_term
+            st.session_state.show_species_list = True
+            st.session_state.selected_species = None
+        elif search_button and not search_term:
+            st.warning("Please enter a search term.")
+
+    # Display species occurrences if selected_species is not None
+    if st.session_state.selected_species:
+        display_species_occurrences(st.session_state.selected_species)
+    elif st.session_state.show_species_list:
+        if 'search_term' in st.session_state:
+            with st.spinner("Searching for species..."):
+                df = get_species(st.session_state.search_term)
+            if not df.empty:
+                # Display species list as a mobile-friendly list
+                display_species_list(df)
+            else:
+                st.write("No matching species found.")
 
 def show_occurrences(species):
     """Function to update the selected species in session state."""
     st.session_state.selected_species = species
+    st.session_state.show_species_list = False
+
+COLOR_BREWER_BLUE_SCALE = [
+    [240, 249, 232],
+    [204, 235, 197],
+    [168, 221, 181],
+    [123, 204, 196],
+    [67, 162, 202],
+    [8, 104, 172],
+]
 
 def display_species_list(df):
     """Display species list as a mobile-friendly list."""
-
     if not df.empty:
         for idx, row in df.iterrows():
             with st.container():
@@ -61,13 +95,11 @@ def display_species_list(df):
                     on_click=show_occurrences,
                     args=(row['species'],)
                 )
-                st.markdown("---")
     else:
         st.write("No matching species found.")
 
 def display_species_occurrences(species):
     """Display the full description, name, and occurrences of the selected species."""
-    # Fetch species details again (you can optimize by storing this in session state)
     species_df = get_species_by_name(species)
     if not species_df.empty:
         species_row = species_df.iloc[0]
@@ -87,16 +119,41 @@ def display_species_occurrences(species):
         # Fetch and display occurrences
         with st.spinner("Fetching occurrences..."):
             occurrence_df = get_occurrences(species)
-
         if not occurrence_df.empty:
             st.subheader("Occurrences")
-            st.map(occurrence_df)
+
+            # Define a Pydeck HeatmapLayer with tooltips
+            heatmap_layer = pdk.Layer(
+                "HeatmapLayer",
+                data=occurrence_df,
+                get_position=["longitude", "latitude"],
+                get_weight="individual_count",
+                color_range=COLOR_BREWER_BLUE_SCALE,
+                opacity=0.9,
+                threshold=0.2
+            )
+
+            # Define the Pydeck view
+            view_state = pdk.ViewState(
+                latitude=occurrence_df["latitude"].mean(),
+                longitude=occurrence_df["longitude"].mean(),
+                zoom=5,
+                pitch=40.5
+            )
+
+            # Render the map with HeatmapLayer
+            st.pydeck_chart(pdk.Deck(
+                layers=[heatmap_layer],
+                initial_view_state=view_state
+            ))
         else:
             st.write("No occurrences found.")
 
         # Back button to return to search results
         if st.button("Back to Search Results"):
-            del st.session_state.selected_species
+            st.session_state.selected_species = None
+            st.session_state.show_species_list = True
+            st.rerun()
     else:
         st.error("Species details not found.")
 
@@ -118,7 +175,7 @@ def get_species(search_term):
         SELECT species, Image_URL, Common_name
         FROM `gbif-412615.marine_data.species`
         WHERE SEARCH(Common_name, @search_term)
-        LIMIT 5
+        LIMIT 10
     """
     search_term = search_term.lower()
     job_config = bigquery.QueryJobConfig(
@@ -162,8 +219,9 @@ def get_occurrences(species):
     occurrence_query = """
         SELECT
             ST_Y(geography) AS latitude,
-            ST_X(geography) AS longitude
-        FROM `gbif-412615.marine_data.clustered_occurences`
+            ST_X(geography) AS longitude,
+            individual_count
+        FROM `gbif-412615.marine_data.clustered_occurrences`
         WHERE species = @species
     """
     occurrence_job_config = bigquery.QueryJobConfig(
@@ -180,4 +238,5 @@ def get_occurrences(species):
     return occurrence_df
 
 if __name__ == "__main__":
+    
     main()

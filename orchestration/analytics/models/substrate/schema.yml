@@ -26,12 +26,6 @@ models:
         description: "The date of the occurrence. This field is required and must not be null."
         data_tests:
           - not_null
-      - name: source
-        description: "The source of the occurrence. This field is required and must not be null."
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ['GBIF']
 
   - name: obis_occurrences
     description: |
@@ -58,12 +52,6 @@ models:
         description: "The date of the occurrence. This field is required and must not be null."
         data_tests:
           - not_null
-      - name: source
-        description: "The source of the occurrence. This field is required and must not be null."
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ['OBIS']
 
   - name: divesites
     description: |

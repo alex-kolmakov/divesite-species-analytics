@@ -1,4 +1,4 @@
-divesites_data_bq:
+marine_species_data:
   target: local
   outputs:
     local:

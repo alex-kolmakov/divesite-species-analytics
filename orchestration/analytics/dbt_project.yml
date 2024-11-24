@@ -1,9 +1,9 @@
 
-name: 'divesites_data'
+name: 'marine_species_data'
 version: '1.0.0'
 config-version: 2
 
-profile: 'divesites_data_bq'
+profile: 'marine_species_data'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -17,13 +17,10 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  divesites_data:
-      seabed:
+  marine_species_data:
+      substrate:
           description: 'This model represents staged external tables from the several sources.'
-          materialized: view
-      coral:
+      skeleton:
           description: 'This model represents converted data from the staged sources to provide occurence reference tables.'
-          materialized: table
-      reef:
+      coral:
           description: 'Final aggregated tables for the divesites data.'
-          materialized: table
