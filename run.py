@@ -13,7 +13,7 @@ client = bigquery.Client(credentials=credentials)
 st.set_page_config(page_title="Marine species")
 
 def main():
-    st.title("Marine species search")
+    st.title("Species search")
 
     # Initialize session state variables
     if 'show_species_list' not in st.session_state:
@@ -24,17 +24,17 @@ def main():
 
     # Use st.form to align text input and button
     with st.form('search_form'):
-        col1, col2 = st.columns([6, 1])
+        col1, col2 = st.columns([3,1])
         with col1:
             search_term = st.text_input(
                 "",
                 value=st.session_state.get('search_term', ''),
-                placeholder="Name or a known common part of description",
+                placeholder="Name or description",
                 label_visibility='collapsed',
                 key='search_term_input'
             )
         with col2:
-            search_button = st.form_submit_button("Search")
+            search_button = st.form_submit_button("Search", use_container_width=True)
 
         if search_button and search_term:
             st.session_state.search_term = search_term
