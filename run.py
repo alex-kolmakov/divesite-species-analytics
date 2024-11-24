@@ -138,7 +138,7 @@ def display_species_occurrences(species):
             view_state = pdk.ViewState(
                 latitude=occurrence_df["latitude"].mean(),
                 longitude=occurrence_df["longitude"].mean(),
-                zoom=5,
+                zoom=1,
                 pitch=40.5
             )
 
@@ -176,12 +176,11 @@ def get_species(search_term):
         SELECT species, Image_URL, Common_name
         FROM `gbif-412615.marine_data.species`
         WHERE SEARCH(Common_name, @search_term)
-        LIMIT 10
     """
     search_term = search_term.lower()
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
-            bigquery.ScalarQueryParameter("search_term", "STRING", f"%{search_term}%")
+            bigquery.ScalarQueryParameter("search_term", "STRING", f"{search_term}")
         ]
     )
     try:

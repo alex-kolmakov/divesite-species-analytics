@@ -25,9 +25,10 @@ blocks:
   has_callback: false
   language: python
   name: pull_images_and_common_names
-  retry_config: null
+  retry_config:
+    retries: 5
   status: updated
-  timeout: null
+  timeout: '180'
   type: custom
   upstream_blocks:
   - species
