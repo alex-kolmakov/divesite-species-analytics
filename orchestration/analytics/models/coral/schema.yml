@@ -195,7 +195,7 @@ exposures:
     label: Marine Species Search App
     type: application
     maturity: high
-    url: https://marine-species-finder.streamlit.app/
+    url: https://marine-species-search.streamlit.app/
 
 
     depends_on:
