@@ -176,6 +176,7 @@ def get_species(search_term):
         SELECT species, Image_URL, Common_name
         FROM `gbif-412615.marine_data.species`
         WHERE SEARCH(Common_name, @search_term)
+        LIMIT 20
     """
     search_term = search_term.lower()
     job_config = bigquery.QueryJobConfig(
