@@ -40,6 +40,7 @@ def main():
             st.session_state.search_term = search_term
             st.session_state.show_species_list = True
             st.session_state.selected_species = None
+            st.rerun()
         elif search_button and not search_term:
             st.warning("Please enter a search term.")
 
