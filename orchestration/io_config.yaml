@@ -1,7 +1,0 @@
-version: 0.1.1
-default:
-  # Default profile created for data IO access.
-  # Add your credentials for the source you use, and delete the rest.
-
-  GOOGLE_SERVICE_ACC_KEY_FILEPATH: "/home/src/secret.json"
-  GOOGLE_LOCATION: US # Optional

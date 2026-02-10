@@ -1,9 +1,0 @@
-block_type: data_loader
-color: null
-configuration: null
-description: downloads file in chunks with adjustable chunk_size, auth and other parameters
-language: python
-name: DOWNLOAD
-pipeline: {}
-tags: []
-user: {}

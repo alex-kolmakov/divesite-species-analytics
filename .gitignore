@@ -132,9 +132,9 @@ dmypy.json
 .DS_Store
 terraform/.terraform
 terraform/.terraform.lock.hcl
-analytics/target/
-analytics/logs/
-orchestration/.file_versions/
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
 secret.json
 obis.parquet
 invasive_core_archive.zip

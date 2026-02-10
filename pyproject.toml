@@ -13,5 +13,5 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyrefly]
 project-includes = ["ingest/", "enrich/"]
-project-excludes = ["orchestration/", ".venv/"]
+project-excludes = [".venv/"]
 python-version = "3.11"
