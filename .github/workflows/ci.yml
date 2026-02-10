@@ -2,12 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, "stage-*"]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +22,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          uv pip install --system -r requirements-ingest.txt
-          uv pip install --system -r requirements-enrich.txt
-          uv pip install --system -r requirements-dev.txt
+        run: uv pip install --system -r requirements-dev.txt
 
       - name: Ruff lint
         run: ruff check ingest/ enrich/
@@ -33,6 +31,7 @@ jobs:
         run: ruff format --check ingest/ enrich/
 
   typecheck:
+    name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,5 +50,41 @@ jobs:
           uv pip install --system -r requirements-enrich.txt
           uv pip install --system -r requirements-dev.txt
 
-      - name: Pyrefly typecheck
+      - name: Pyrefly type check
         run: pyrefly check
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile.ingest
+            tag: ingest
+          - dockerfile: Dockerfile.enrich
+            tag: enrich
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.tag }}
+        run: docker build -f ${{ matrix.dockerfile }} -t ${{ matrix.tag }}:ci .
+
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate

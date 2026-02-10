@@ -1,51 +1,63 @@
-
 ## Prerequisites
 
-- Docker & Docker compose
-- Google Cloud SDK (for interacting with Google Cloud Storage through terraform)
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/)
+- Docker
+- Google Cloud SDK
 - Terraform
-- Preferrably access to Google Cloud Platform and Virtual Machine with at least 4 vCPUs and 10GB of RAM and 70GB of disk space and good download speed (we will be struggling with unpartitioned 20GB parquet).
-
-
+- GCP project with BigQuery and GCS enabled
 
 ## Setup
 
 1. Clone the repository:
 
 ```sh
-git clone https://github.com/yourusername/marine-species-analytics.git && cd marine-species-analytics
+git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
+cd divesite-species-analytics
 ```
 
+2. Install dependencies:
 
-2. Create a `secret.json` file with your Google Cloud credentials from Service Account and put it in the root of the project.
+```sh
+uv venv .venv && source .venv/bin/activate
+uv pip install -r requirements-ingest.txt -r requirements-enrich.txt -r requirements-dev.txt
+```
 
-3. Update variables inside `variables.tf` to match your project setup in Google Cloud.
+3. Create a `secret.json` file with your Google Cloud credentials from a Service Account and put it in the root of the project.
 
-4. Configure your Google Cloud SDK:
+4. Configure environment variables:
+
+```sh
+cp env.example .env
+# Edit .env with your values
+```
+
+See [TESTING.md](../TESTING.md) for the full list of environment variables.
+
+5. Configure your Google Cloud SDK:
 
 ```sh
 gcloud init
 ```
 
-5. Run `terraform apply` to get all resources in the cloud up and running.
-
-
-6. Before starting the project you would need to populate `.env` file. Use `.env.sample` as a template.
-Environment variables are:
-    -   `SPARK_MASTER_HOST` host selected for Spark master, if at some poing standalone Spark cluster will not be enough and you would like to use more performant option.
-
-    -   `AGGREGATION_WINDOW_DAYS: 1095` - number of days. Occurence data for the past 3 years will be used by default.
-    -   `PROXIMITY_METERS: 1000` - occurence points deemed "near" the divesites location when they are 1 kilometer or closer.
-    -   `LATTITUDE_TOP: 26.5`
-    -   `LATTITUDE_BOTTOM: 22.5`
-    -   `LONGITUDE_LEFT: 51`
-    -   `LONGITUDE_RIGHT: 56.5`  - all these variables allow you to pick a "square" on the map by pointing to top-right and bottom-left corners of the map. Default values represent south-eastern part of the Persian Gulf encompassing UAE.
-
-
-7. Run the compose file to start mage.ai:
+6. Deploy infrastructure with Terraform:
 
 ```sh
-docker-compose up --build -d
+cd terraform
+terraform init
+terraform plan    # review changes
+terraform apply   # deploy
 ```
 
-9. After this - proceed to port 6789 and launch all of the pipelines.
+7. Run ingestion:
+
+```sh
+source .env
+python -m ingest --source all
+```
+
+8. For Docker-based runs:
+
+```sh
+docker build -f Dockerfile.ingest -t ingest:local .
+docker run --env-file .env ingest:local --source all
+```
