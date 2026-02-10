@@ -95,6 +95,8 @@ docs/                Development plan & documentation
 
 ## Quick Start
 
+> Full setup guide: [`docs/SETUP.md`](docs/SETUP.md) | Testing guide: [`docs/TESTING.md`](docs/TESTING.md)
+
 ### Prerequisites
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
@@ -108,39 +110,33 @@ docs/                Development plan & documentation
 git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
 cd divesite-species-analytics
 
-uv venv .venv && source .venv/bin/activate
-uv pip install -r requirements-ingest.txt -r requirements-enrich.txt -r requirements-dev.txt
-
-cp env.example .env   # edit with your values
+make setup              # creates venv, installs deps, copies .env, installs pre-commit
+# edit .env with your GCP project details
 ```
 
-### Run Ingestion
+### Local Development
 
 ```bash
-source .env
-
-python -m ingest --source iucn          # single source
-python -m ingest --source iucn,gisd     # multiple sources
-python -m ingest --source all           # everything
+make ingest                      # ingest all sources
+make ingest SOURCE=iucn          # single source
+make ingest SOURCE=iucn,gisd     # multiple sources
+make enrich                      # run Wikipedia enrichment
+make check                       # lint + format + typecheck
 ```
 
-### Docker
+### Cloud Deployment
 
 ```bash
-docker build -f Dockerfile.ingest -t ingest:local .
-docker run --env-file .env ingest:local --source iucn
+make infra                       # deploy GCP infrastructure via Terraform
+make deploy                      # build images, push to Artifact Registry, run Cloud Run jobs
+make refresh                     # re-run Cloud Run jobs without rebuilding images
 ```
 
-### Terraform
-
-```bash
-cd terraform
-terraform init && terraform plan
-```
+Run `make help` for the full list of targets.
 
 ## CI/CD
 
-All checks run on push to `main` and on pull requests:
+All checks run on every push and on pull requests to `main`:
 
 | Job | What it does |
 |-----|-------------|
