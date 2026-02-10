@@ -1,0 +1,17 @@
+[project]
+name = "marine-species-analytics"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["ingest", "enrich"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyrefly]
+project-includes = ["ingest/", "enrich/"]
+project-excludes = ["orchestration/", ".venv/"]
+python-version = "3.11"

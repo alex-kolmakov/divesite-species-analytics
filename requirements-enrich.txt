@@ -1,0 +1,6 @@
+pandas
+pyarrow
+aiohttp
+beautifulsoup4
+google-cloud-bigquery
+tqdm

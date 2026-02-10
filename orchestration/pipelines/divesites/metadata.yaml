@@ -17,7 +17,7 @@ blocks:
   type: custom
   upstream_blocks: []
   uuid: async_load_divesites
-- all_upstream_blocks_executed: true
+- all_upstream_blocks_executed: false
   color: null
   configuration:
     file_source:
@@ -36,7 +36,7 @@ blocks:
   upstream_blocks:
   - async_load_divesites
   uuid: clean_divesites
-- all_upstream_blocks_executed: true
+- all_upstream_blocks_executed: false
   color: null
   configuration: {}
   downstream_blocks: []

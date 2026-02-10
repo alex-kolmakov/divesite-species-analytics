@@ -1,18 +1,17 @@
 import os
-import pandas as pd
 
 from utils.download import download
 
-if 'data_loader' not in globals():
+if "data_loader" not in globals():
     from mage_ai.data_preparation.decorators import data_loader
-if 'test' not in globals():
+if "test" not in globals():
     from mage_ai.data_preparation.decorators import test
 
 
 @data_loader
 def download_file(*args, **kwargs):
-    url = os.environ.get(kwargs.get('ENV_URL_TO_DOWNLOAD'))
-    downloaded_filename = kwargs.get('DOWNLOADED_FILENAME')
+    url = os.environ.get(kwargs.get("ENV_URL_TO_DOWNLOAD"))
+    downloaded_filename = kwargs.get("DOWNLOADED_FILENAME")
     download(url, downloaded_filename)
     return downloaded_filename
 
@@ -22,6 +21,5 @@ def test_dataframe(output, *args) -> None:
     """
     Template code for testing the output of the block.
     """
-    assert output is not None, 'The output is undefined'
-    assert os.path.exists(output), 'File was not downloaded'
-
+    assert output is not None, "The output is undefined"
+    assert os.path.exists(output), "File was not downloaded"

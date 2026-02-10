@@ -1,10 +1,12 @@
 import os
+
 from google.cloud import storage
 
-if 'data_exporter' not in globals():
+if "data_exporter" not in globals():
     from mage_ai.data_preparation.decorators import data_exporter
 
-GC_PROJECT = os.getenv('GOOGLE_PROJECT_NAME', 'marine_data_412615')
+GC_PROJECT = os.getenv("GOOGLE_PROJECT_NAME", "marine_data_412615")
+
 
 @data_exporter
 def export_data_to_google_cloud_storage(filename: str, **kwargs) -> None:
@@ -14,7 +16,7 @@ def export_data_to_google_cloud_storage(filename: str, **kwargs) -> None:
     """
     # Path to your service account key file
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/src/secret.json"
-    
+
     bucket_name = GC_PROJECT
     object_key = kwargs.get("DATASET_PARQUET_FILENAME")
 
@@ -32,8 +34,8 @@ def export_data_to_google_cloud_storage(filename: str, **kwargs) -> None:
     blob.chunk_size = chunk_size  # Set the chunk size for resumable uploads
 
     # Start a resumable upload session
-    with open(filename, 'rb') as file_data:
+    with open(filename, "rb") as file_data:
         # Upload the file using the `upload_from_file` method for chunked upload
         blob.upload_from_file(file_data, rewind=True)
 
-    print(f'File {filename} successfully uploaded to {bucket_name}/{object_key}.')
+    print(f"File {filename} successfully uploaded to {bucket_name}/{object_key}.")

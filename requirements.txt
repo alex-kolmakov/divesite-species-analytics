@@ -8,3 +8,5 @@ tqdm
 google-cloud-bigquery
 db-dtypes
 validators
+python-dotenv
+dlt

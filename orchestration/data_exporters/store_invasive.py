@@ -1,14 +1,16 @@
-from mage_ai.settings.repo import get_repo_path
+import os
+
 from mage_ai.io.config import ConfigFileLoader
 from mage_ai.io.google_cloud_storage import GoogleCloudStorage
+from mage_ai.settings.repo import get_repo_path
 from pandas import DataFrame
-import os 
 
-if 'data_exporter' not in globals():
+if "data_exporter" not in globals():
     from mage_ai.data_preparation.decorators import data_exporter
 
 
-GC_PROJECT = os.getenv('GOOGLE_PROJECT_NAME', 'marine_data_412615')
+GC_PROJECT = os.getenv("GOOGLE_PROJECT_NAME", "marine_data_412615")
+
 
 @data_exporter
 def export_data_to_google_cloud_storage(df: DataFrame, **kwargs) -> None:
@@ -18,8 +20,8 @@ def export_data_to_google_cloud_storage(df: DataFrame, **kwargs) -> None:
 
     Docs: https://docs.mage.ai/design/data-loading#googlecloudstorage
     """
-    config_path = os.path.join(get_repo_path(), 'io_config.yaml')
-    config_profile = 'default'
+    config_path = os.path.join(get_repo_path(), "io_config.yaml")
+    config_profile = "default"
 
     bucket_name = GC_PROJECT
     object_key = kwargs.get("DATASET_PARQUET_FILENAME")
@@ -28,5 +30,5 @@ def export_data_to_google_cloud_storage(df: DataFrame, **kwargs) -> None:
         df,
         bucket_name,
         object_key,
-        format='Parquet',
+        format="Parquet",
     )

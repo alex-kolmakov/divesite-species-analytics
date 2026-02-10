@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "stage-*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -r requirements-ingest.txt
+          uv pip install --system -r requirements-enrich.txt
+          uv pip install --system -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check ingest/ enrich/
+
+      - name: Ruff format check
+        run: ruff format --check ingest/ enrich/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -r requirements-ingest.txt
+          uv pip install --system -r requirements-enrich.txt
+          uv pip install --system -r requirements-dev.txt
+
+      - name: Pyrefly typecheck
+        run: pyrefly check

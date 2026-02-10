@@ -145,3 +145,19 @@ mage_data
 
 .streamlit/
 .devcontainer/
+
+# Data files
+*.duckdb
+*.parquet
+*.zip
+!requirements*.txt
+
+# DLT
+.dlt/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars

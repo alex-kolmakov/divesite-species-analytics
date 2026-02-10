@@ -1,10 +1,12 @@
-from mage_ai.settings.repo import get_repo_path
+from os import path
+
 from mage_ai.io.bigquery import BigQuery
 from mage_ai.io.config import ConfigFileLoader
-from os import path
-if 'data_loader' not in globals():
+from mage_ai.settings.repo import get_repo_path
+
+if "data_loader" not in globals():
     from mage_ai.data_preparation.decorators import data_loader
-if 'test' not in globals():
+if "test" not in globals():
     from mage_ai.data_preparation.decorators import test
 
 
@@ -17,8 +19,8 @@ def load_data_from_big_query(*args, **kwargs):
     Docs: https://docs.mage.ai/design/data-loading#bigquery
     """
     query = f"SELECT * FROM `{kwargs.get('SPECIES_DATASET')}`"
-    config_path = path.join(get_repo_path(), 'io_config.yaml')
-    config_profile = 'default'
+    config_path = path.join(get_repo_path(), "io_config.yaml")
+    config_profile = "default"
 
     return BigQuery.with_config(ConfigFileLoader(config_path, config_profile)).load(query)
 
@@ -28,4 +30,4 @@ def test_output(output, *args) -> None:
     """
     Template code for testing the output of the block.
     """
-    assert output is not None, 'The output is undefined'
+    assert output is not None, "The output is undefined"

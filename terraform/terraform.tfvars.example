@@ -1,0 +1,6 @@
+project_id             = "gbif-412615"
+region                 = "us-central1"
+bucket_name            = "marine_data_412615"
+bigquery_dataset       = "marine_data"
+artifact_registry_repo = "marine-analytics"
+enable_scheduler       = false

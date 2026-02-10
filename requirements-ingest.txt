@@ -1,0 +1,8 @@
+python-dwca-reader
+pandas
+pyarrow
+aiohttp
+duckdb
+requests
+tqdm
+google-cloud-storage
