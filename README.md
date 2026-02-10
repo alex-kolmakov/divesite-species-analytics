@@ -10,6 +10,7 @@
 [![dbt](https://img.shields.io/badge/dbt-BigQuery-FF694B?logo=dbt&logoColor=white)](dbt/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Pyrefly](https://img.shields.io/badge/types-pyrefly-F7DC6F?logo=python&logoColor=white)](https://github.com/facebook/pyrefly)
 
 *A marine biodiversity data platform combining multiple scientific datasets to answer:*
 
@@ -90,7 +91,7 @@ enrich/              Wikipedia enrichment pipeline (BigQuery)
 dbt/                 dbt models (substrate / skeleton / coral)
 terraform/           GCP infrastructure as code
 .github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
-docs/                Development plan & documentation
+docs/                Setup and testing guides
 ```
 
 ## Quick Start
@@ -110,21 +111,24 @@ docs/                Development plan & documentation
 git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
 cd divesite-species-analytics
 
-make setup              # creates venv, installs deps, copies .env, installs pre-commit
-# edit .env with your GCP project details
+uv venv .venv && source .venv/bin/activate
+uv pip install -r requirements-ingest.txt -r requirements-enrich.txt -r requirements-dev.txt
+
+cp env.example .env   # edit with your values
 ```
 
 ### Local Development
 
 ```bash
-make ingest                      # ingest all sources
-make ingest SOURCE=iucn          # single source
-make ingest SOURCE=iucn,gisd     # multiple sources
-make enrich                      # run Wikipedia enrichment
-make check                       # lint + format + typecheck
+source .env
+
+python -m ingest --source iucn          # single source
+python -m ingest --source iucn,gisd     # multiple sources
+python -m ingest --source all           # everything
+python -m enrich                        # Wikipedia enrichment
 ```
 
-### Cloud Deployment
+### Production Deployment
 
 ```bash
 make infra                       # deploy GCP infrastructure via Terraform
@@ -153,16 +157,6 @@ All checks run on every push and on pull requests to `main`:
 - Top 20 invasive species near divesites
 
 <img width="1265" alt="Dashboard screenshot" src="https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/3e01401b-4dce-41f4-af46-ee03aae6be33">
-
-## Development Plan
-
-See [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) for the full roadmap.
-
-| Stage | Status | Description |
-|-------|--------|-------------|
-| 1. Infrastructure & Ingestion | **Complete** | Terraform, Python CLI, Cloud Run |
-| 2. dbt Data Modeling | **Next** | Fix & expand dbt, add tests, CI |
-| 3. Frontend Application | Planned | Interactive species/divesite explorer |
 
 ---
 
