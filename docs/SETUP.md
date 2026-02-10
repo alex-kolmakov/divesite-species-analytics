@@ -31,7 +31,7 @@ cp env.example .env
 # Edit .env with your values
 ```
 
-See [TESTING.md](../TESTING.md) for the full list of environment variables.
+See [TESTING.md](TESTING.md) for the full list of environment variables.
 
 5. Configure your Google Cloud SDK:
 
