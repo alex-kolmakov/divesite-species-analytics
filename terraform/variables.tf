@@ -33,3 +33,9 @@ variable "enable_scheduler" {
   type        = bool
   default     = false
 }
+
+variable "development" {
+  description = "Enable development mode (sampled data in dbt, smaller enrich batches)"
+  type        = bool
+  default     = false
+}

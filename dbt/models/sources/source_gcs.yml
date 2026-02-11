@@ -2,37 +2,82 @@ version: 2
 
 sources:
   - name: marine_data
-    description: 'This is the main source for marine data'
+    description: >
+      External GCS parquet files and BigQuery tables that back the marine species analytics
+      platform. Ingested by the marine-data-ingestion Cloud Run job.
     database: gbif-412615
     loader: gcloud storage
+
     tables:
-      - name: invasive_table
-        description: 'Table containing data about invasive species'
-        external:
-          location: 'gs://marine_data_412615/invasive.parquet'
-          options:
-            format: parquet
-      - name: redlist_table
-        description: 'Table containing data about red-listed species'
-        external:
-          location: 'gs://marine_data_412615/redlist.parquet'
-          options:
-            format: parquet
-      - name: worms_table
-        description: 'Table containing WoRMS data'
-        external:
-          location: 'gs://marine_data_412615/worms.parquet'
-          options:
-            format: parquet
-      - name: divesites_table
-        description: 'Table containing data about dive sites'
-        external:
-          location: 'gs://marine_data_412615/divesites.parquet'
-          options:
-            format: parquet
       - name: obis_table
-        description: 'Table containing data from the Ocean Biogeographic Information System (OBIS)'
+        description: >
+          Ocean Biogeographic Information System occurrence records. Refreshed from
+          s3://obis-open-data via the ingestion pipeline. Contains species, coordinates,
+          dates, and individual counts in the interpreted struct.
         external:
           location: 'gs://marine_data_412615/obis.parquet'
           options:
             format: parquet
+        columns:
+          - name: species
+            description: Scientific name of the observed species.
+          - name: decimalLatitude
+            description: Latitude of the observation in decimal degrees.
+          - name: decimalLongitude
+            description: Longitude of the observation in decimal degrees.
+          - name: eventDate
+            description: Date/time of the observation as a string (cast downstream).
+          - name: individualCount
+            description: Number of individuals observed (may be null).
+
+      - name: worms_table
+        description: >
+          World Register of Marine Species taxonomy extract. Used as the authoritative
+          species validation reference. Joined on scientificName to filter occurrences.
+        external:
+          location: 'gs://marine_data_412615/worms.parquet'
+          options:
+            format: parquet
+        columns:
+          - name: scientificName
+            description: Accepted scientific name from WoRMS taxonomy.
+
+      - name: redlist_table
+        description: >
+          IUCN Red List of Threatened Species extract. Used to flag species as endangered
+          in the species reference table.
+        external:
+          location: 'gs://marine_data_412615/redlist.parquet'
+          options:
+            format: parquet
+        columns:
+          - name: scientificName
+            description: Scientific name of the species on the IUCN Red List.
+
+      - name: invasive_table
+        description: >
+          Global Invasive Species Database (GISD) extract. Used to flag species as invasive
+          in the species reference table.
+        external:
+          location: 'gs://marine_data_412615/invasive.parquet'
+          options:
+            format: parquet
+        columns:
+          - name: scientificName
+            description: Scientific name of the invasive species.
+
+      - name: divesites_table
+        description: >
+          PADI dive site locations scraped from the dive-guide API. Contains site name and
+          coordinates for ~3,400 sites worldwide.
+        external:
+          location: 'gs://marine_data_412615/divesites.parquet'
+          options:
+            format: parquet
+        columns:
+          - name: title
+            description: Human-readable name of the dive site.
+          - name: latitude
+            description: Latitude of the dive site in decimal degrees.
+          - name: longitude
+            description: Longitude of the dive site in decimal degrees.

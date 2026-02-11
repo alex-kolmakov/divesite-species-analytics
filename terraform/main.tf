@@ -127,7 +127,7 @@ resource "google_cloud_run_v2_job" "ingestion" {
         }
         env {
           name  = "IUCN_REDLIST_URL"
-          value = "https://hosted-datasets.gbif.org/datasets/iucn_2024-1.zip"
+          value = "https://hosted-datasets.gbif.org/datasets/iucn/iucn-latest.zip"
         }
         env {
           name  = "GISD_URL"
@@ -135,7 +135,7 @@ resource "google_cloud_run_v2_job" "ingestion" {
         }
         env {
           name  = "WORMS_URL_TEMPLATE"
-          value = "https://www.marinespecies.org/dwca/WoRMS_DwC-A_{full_date}.zip"
+          value = "https://www.marinespecies.org/export/worms/{year}/WoRMS_download_{full_date}.zip"
         }
         env {
           name  = "BASE_PADI_GUIDE_URL"
@@ -144,6 +144,10 @@ resource "google_cloud_run_v2_job" "ingestion" {
         env {
           name  = "BASE_PADI_MAP_URL"
           value = "https://travel.padi.com/api/v2/travel/dsl/dive-sites/map/"
+        }
+        env {
+          name  = "OBIS_BATCH_SIZE"
+          value = "5"
         }
         env {
           name = "WORMS_LOGIN"
@@ -165,7 +169,7 @@ resource "google_cloud_run_v2_job" "ingestion" {
         }
       }
 
-      timeout     = "3600s"
+      timeout     = "7200s"
       max_retries = 1
 
       service_account = google_service_account.ingestion.email
@@ -177,6 +181,64 @@ resource "google_cloud_run_v2_job" "ingestion" {
       template[0].template[0].containers[0].image,
     ]
   }
+
+  depends_on = [
+    google_artifact_registry_repository.images,
+    google_secret_manager_secret.worms_login,
+    google_secret_manager_secret.worms_password,
+  ]
+}
+
+# ─── Cloud Run Job: dbt ─────────────────────────────────────────────────────
+
+resource "google_cloud_run_v2_job" "dbt" {
+  name     = "marine-data-dbt"
+  location = var.region
+
+  template {
+    template {
+      containers {
+        image = "${local.registry_url}/dbt:latest"
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "2Gi"
+          }
+        }
+
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
+        }
+        env {
+          name  = "BIGQUERY_DATASET"
+          value = var.bigquery_dataset
+        }
+        env {
+          name  = "PROXIMITY_METERS"
+          value = "3000"
+        }
+        env {
+          name  = "DEVELOPMENT"
+          value = var.development ? "true" : "false"
+        }
+      }
+
+      timeout     = "1800s"
+      max_retries = 1
+
+      service_account = google_service_account.ingestion.email
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      template[0].template[0].containers[0].image,
+    ]
+  }
+
+  depends_on = [google_artifact_registry_repository.images]
 }
 
 # ─── Cloud Run Job: Enrichment ───────────────────────────────────────────────
@@ -205,6 +267,10 @@ resource "google_cloud_run_v2_job" "enrichment" {
           name  = "BIGQUERY_DATASET"
           value = var.bigquery_dataset
         }
+        env {
+          name  = "ENRICH_BATCH_SIZE"
+          value = var.development ? "50" : "500"
+        }
       }
 
       timeout     = "1800s"
@@ -219,6 +285,8 @@ resource "google_cloud_run_v2_job" "enrichment" {
       template[0].template[0].containers[0].image,
     ]
   }
+
+  depends_on = [google_artifact_registry_repository.images]
 }
 
 # ─── Cloud Scheduler (optional) ──────────────────────────────────────────────

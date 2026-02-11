@@ -62,6 +62,8 @@ jobs:
             tag: ingest
           - dockerfile: Dockerfile.enrich
             tag: enrich
+          - dockerfile: Dockerfile.dbt
+            tag: dbt
     steps:
       - uses: actions/checkout@v4
 

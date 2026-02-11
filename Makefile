@@ -1,100 +1,135 @@
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  Marine Species Analytics - Production Deployment                          ║
-# ║                                                                            ║
-# ║  Usage:  make <target>                                                     ║
-# ║  Help:   make help                                                         ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# Marine Species Analytics — Makefile
 #
-# This Makefile automates the production deployment workflow on GCP:
+#   make setup      One-time: auth, APIs, Terraform
+#   make deploy     Build images + run full pipeline
+#   make refresh    Re-run pipeline without rebuilding images
+#   make help       Show all targets
 #
-#   1. Provision infrastructure      make infra
-#   2. Build & push Docker images    make push
-#   3. Execute Cloud Run jobs        make refresh
-#
-# Or do it all in one shot:          make deploy
-#
-# Prerequisites:
-#   - gcloud CLI authenticated (gcloud auth login)
-#   - Docker authenticated with Artifact Registry:
-#       gcloud auth configure-docker us-central1-docker.pkg.dev
-#   - WoRMS credentials stored in GCP Secret Manager
+#   Add DEV=1 for development mode (sampled data, smaller batches):
+#     make deploy DEV=1
+#     make refresh DEV=1
 
-# ─── Configuration ──────────────────────────────────────────────────────────────
-# Defaults match terraform/variables.tf. Override via environment:
-#   export PROJECT_ID=my-project && make deploy
+# ─── Configuration ────────────────────────────────────────────────────────────
 
 PROJECT_ID   ?= gbif-412615
 REGION       ?= us-central1
+BUCKET       ?= marine_data_412615
 AR_REPO      ?= marine-analytics
 REGISTRY     := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
+SERVICE_KEY  ?= secret.json
+INGEST_JOB   := marine-data-ingestion
+PLATFORM     := linux/amd64
 
-# ─── Help ───────────────────────────────────────────────────────────────────────
+export GOOGLE_APPLICATION_CREDENTIALS ?= $(CURDIR)/$(SERVICE_KEY)
+
+# Sources to ingest — each runs as a parallel Cloud Run execution
+INGEST_SOURCES := iucn gisd worms divesites obis
+
+ifdef DEV
+  TF_DEV_FLAG := -var="development=true"
+else
+  TF_DEV_FLAG :=
+endif
+
+# ─── Help ─────────────────────────────────────────────────────────────────────
 
 .PHONY: help
-help: ## Show this help message
-	@echo ""
-	@echo "Marine Species Analytics - Production Deployment"
-	@echo "================================================"
+help: ## Show all targets
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  Add DEV=1 for development mode (sampled data, smaller batches)"
 	@echo ""
 
-# ─── Terraform / Infrastructure ─────────────────────────────────────────────────
-# Provisions all GCP resources: GCS bucket, BigQuery dataset, Artifact Registry,
-# Cloud Run jobs, service account with IAM bindings, and (optionally) Cloud
-# Scheduler. Run 'make infra-plan' first to review changes before applying.
+# ─── Setup (one-time) ────────────────────────────────────────────────────────
 
-.PHONY: infra-init
-infra-init: ## Initialize Terraform (downloads providers)
+.PHONY: setup
+setup: ## One-time: authenticate, enable GCP APIs, build images, deploy infrastructure
+	gcloud auth activate-service-account --key-file=$(SERVICE_KEY)
+	gcloud config set project $(PROJECT_ID)
+	gcloud auth configure-docker $(REGION)-docker.pkg.dev
+	gcloud services enable serviceusage.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable secretmanager.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable run.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable artifactregistry.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable cloudscheduler.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable bigquery.googleapis.com --project $(PROJECT_ID)
+	gcloud services enable iam.googleapis.com --project $(PROJECT_ID)
 	cd terraform && terraform init
-
-.PHONY: infra-plan
-infra-plan: ## Preview infrastructure changes (dry run)
-	cd terraform && terraform plan
-
-.PHONY: infra-apply
-infra-apply: ## Deploy infrastructure to GCP
-	cd terraform && terraform apply
-
-.PHONY: infra
-infra: infra-init infra-plan infra-apply ## Full infra deploy (init + plan + apply)
-
-# ─── Build & Push ───────────────────────────────────────────────────────────────
-# Builds Docker images and pushes them to Google Artifact Registry.
-# The Cloud Run jobs pull the :latest tag from this registry.
-
-.PHONY: push-ingest
-push-ingest: ## Build and push ingest image to Artifact Registry
-	docker build -f Dockerfile.ingest -t $(REGISTRY)/ingest:latest .
+	cd terraform && terraform import google_storage_bucket.data $(PROJECT_ID)/$(BUCKET) 2>/dev/null || true
+	cd terraform && terraform import google_bigquery_dataset.marine_data projects/$(PROJECT_ID)/datasets/marine_data 2>/dev/null || true
+	@echo "\n→ Building and pushing Docker images (required before Cloud Run jobs)..."
+	docker build --platform $(PLATFORM) -f Dockerfile.ingest -t $(REGISTRY)/ingest:latest .
+	docker build --platform $(PLATFORM) -f Dockerfile.dbt    -t $(REGISTRY)/dbt:latest .
+	docker build --platform $(PLATFORM) -f Dockerfile.enrich -t $(REGISTRY)/enrich:latest .
 	docker push $(REGISTRY)/ingest:latest
-
-.PHONY: push-enrich
-push-enrich: ## Build and push enrich image to Artifact Registry
-	docker build -f Dockerfile.enrich -t $(REGISTRY)/enrich:latest .
+	docker push $(REGISTRY)/dbt:latest
 	docker push $(REGISTRY)/enrich:latest
+	@echo "\n→ Applying Terraform..."
+	cd terraform && terraform apply -auto-approve $(TF_DEV_FLAG)
+	@echo "\n✓ Setup complete. Next: make deploy"
 
-.PHONY: push
-push: push-ingest push-enrich ## Build and push all images
-
-# ─── Run Cloud Jobs ─────────────────────────────────────────────────────────────
-# Executes Cloud Run jobs that were created by Terraform. The ingestion job
-# downloads all data sources, converts to Parquet, and uploads to GCS. The
-# enrichment job queries BigQuery for species missing images/common names
-# and fills them from Wikipedia.
-
-.PHONY: run-ingest
-run-ingest: ## Execute ingestion Cloud Run job
-	gcloud run jobs execute marine-data-ingestion --region $(REGION) --wait
-
-.PHONY: run-enrich
-run-enrich: ## Execute enrichment Cloud Run job
-	gcloud run jobs execute marine-data-enrichment --region $(REGION) --wait
-
-# ─── Composite Targets ──────────────────────────────────────────────────────────
+# ─── Pipeline ─────────────────────────────────────────────────────────────────
+#
+#   1. Ingest  — all sources run in PARALLEL (same image, different --args)
+#   2. dbt     — waits for all ingestion to finish, then builds models
+#   3. Enrich  — waits for dbt, then enriches species table
+#
+#   deploy  = build images + push + run pipeline
+#   refresh = re-run pipeline without rebuilding
 
 .PHONY: deploy
-deploy: push run-ingest run-enrich ## Full deploy: push images + run both Cloud Run jobs
+deploy: ## Build images, push to Artifact Registry, and run full pipeline
+	docker build --platform $(PLATFORM) -f Dockerfile.ingest -t $(REGISTRY)/ingest:latest .
+	docker build --platform $(PLATFORM) -f Dockerfile.dbt    -t $(REGISTRY)/dbt:latest .
+	docker build --platform $(PLATFORM) -f Dockerfile.enrich -t $(REGISTRY)/enrich:latest .
+	docker push $(REGISTRY)/ingest:latest
+	docker push $(REGISTRY)/dbt:latest
+	docker push $(REGISTRY)/enrich:latest
+	@$(MAKE) --no-print-directory run-pipeline
 
 .PHONY: refresh
-refresh: run-ingest run-enrich ## Re-run both Cloud Run jobs (no image rebuild)
+refresh: run-pipeline ## Re-run pipeline without rebuilding images
+
+.PHONY: run-pipeline
+run-pipeline:
+	@echo "→ Step 1/3: Ingesting sources in parallel..."
+	@$(MAKE) --no-print-directory run-ingest
+	@echo "→ Step 2/3: Running dbt models..."
+	gcloud run jobs execute marine-data-dbt --region $(REGION) --wait
+	@echo "→ Step 3/3: Enriching species data..."
+	gcloud run jobs execute marine-data-enrichment --region $(REGION) --wait
+	@echo "\n✓ Pipeline complete."
+
+# Launch each source as a separate execution, wait for all to finish.
+# gcloud --args overrides the Dockerfile CMD, so each gets --source <name>.
+.PHONY: run-ingest
+run-ingest:
+	@PIDS=""; SRCS=""; \
+	for src in $(INGEST_SOURCES); do \
+		echo "  → Launching ingest: $$src"; \
+		gcloud run jobs execute $(INGEST_JOB) \
+			--region $(REGION) \
+			--args="--source,$$src" \
+			--wait & \
+		PIDS="$$PIDS $$!"; SRCS="$$SRCS $$src"; \
+	done; \
+	echo "  → Waiting for all ingest jobs to complete..."; \
+	FAILED=""; \
+	set -- $$SRCS; \
+	for pid in $$PIDS; do \
+		if ! wait $$pid; then FAILED="$$FAILED $$1"; fi; \
+		shift; \
+	done; \
+	if [ -n "$$FAILED" ]; then \
+		echo "⚠ Failed sources:$$FAILED (continuing with existing data)"; \
+	else \
+		echo "  ✓ All ingest jobs complete."; \
+	fi
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+
+.PHONY: infra
+infra: ## Apply Terraform changes (after editing terraform/)
+	cd terraform && terraform init -input=false && terraform apply -auto-approve $(TF_DEV_FLAG)

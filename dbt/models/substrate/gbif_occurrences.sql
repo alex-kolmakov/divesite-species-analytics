@@ -4,12 +4,12 @@
 
 SELECT 
     species, 
-    IFNULL(individualcount, 1) as individualcount, 
+    GREATEST(IFNULL(individualcount, 1), 1) as individualcount,
     eventdate, 
     ST_GEOGPOINT(decimallongitude, decimallatitude) as geography,
 FROM `bigquery-public-data.gbif.occurrences`
 
-{% if var("development", default=False) %} 
+{% if env_var("DEVELOPMENT", "false") == "true" %} 
     TABLESAMPLE SYSTEM (0.01 PERCENT) 
 {% endif %} 
 

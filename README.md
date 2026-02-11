@@ -36,15 +36,23 @@
   PADI (API) ───┘   └──────────────┘        └──────┬───────┘
                                                     │ external tables
                      ┌──────────────┐        ┌──────▼───────┐
-                     │  Wikipedia   │        │              │
-                     │  Enrichment  │───────▶│   BigQuery   │
-                     │  (Cloud Run) │        │  (dbt models)│
+                     │  Cloud Run   │        │              │
+                     │  dbt Job     │───────▶│   BigQuery   │
+                     │              │        │  (dbt models)│
+                     └──────────────┘        └──────┬───────┘
+                                                    │ species table
+                     ┌──────────────┐        ┌──────▼───────┐
+                     │  Enrichment  │        │              │
+                     │  (Cloud Run) │───────▶│   BigQuery   │
+                     │ GBIF+WP+WD  │ enrich │  (+ images)  │
                      └──────────────┘        └──────┬───────┘
                                                     │
                                              ┌──────▼───────┐
                                              │   Frontend   │
                                              │  (Streamlit) │
                                              └──────────────┘
+
+  Pipeline order: Ingest → dbt → Enrich
 ```
 
 ## Data Sources
@@ -57,7 +65,7 @@
 | [GISD](http://griis.org) | Global Invasive Species Database | ~830 | DwCA zip |
 | [WoRMS](https://marinespecies.org) | World Register of Marine Species | ~593K | DwCA zip (auth) |
 | [PADI](https://padi.com) | Dive site locations globally | ~3.4K sites | REST API |
-| [Wikipedia](https://wikipedia.org) | Species images and common names | On-demand | MediaWiki API |
+| Enrichment APIs | Species common names, descriptions, images | On-demand | GBIF + Wikipedia REST + Wikidata SPARQL |
 
 ## Data Modeling
 
@@ -87,7 +95,7 @@ The dbt project uses a **medallion architecture** with marine biology-themed lay
 
 ```
 ingest/              Python CLI - downloads, transforms, uploads to GCS
-enrich/              Wikipedia enrichment pipeline (BigQuery)
+enrich/              Species enrichment pipeline (GBIF + Wikipedia + Wikidata → BigQuery)
 dbt/                 dbt models (substrate / skeleton / coral)
 terraform/           GCP infrastructure as code
 .github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
@@ -125,7 +133,9 @@ source .env
 python -m ingest --source iucn          # single source
 python -m ingest --source iucn,gisd     # multiple sources
 python -m ingest --source all           # everything
-python -m enrich                        # Wikipedia enrichment
+
+cd dbt && dbt run && cd ..              # build BigQuery models
+python -m enrich                        # species enrichment (requires species table from dbt)
 ```
 
 ### Production Deployment
@@ -146,7 +156,7 @@ All checks run on every push and on pull requests to `main`:
 |-----|-------------|
 | **Lint** | Ruff linting + format check on `ingest/` and `enrich/` |
 | **Type Check** | Pyrefly static type analysis |
-| **Docker Build** | Builds `ingest` and `enrich` container images |
+| **Docker Build** | Builds `ingest`, `dbt`, and `enrich` container images |
 | **Terraform Validate** | Format check, init, and validate on `terraform/` |
 
 ## [Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ)

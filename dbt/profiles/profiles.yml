@@ -1,0 +1,10 @@
+marine_species_data:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('PROJECT_ID', 'gbif-412615') }}"
+      dataset: "{{ env_var('BIGQUERY_DATASET', 'marine_data') }}"
+      threads: 4
+      location: US

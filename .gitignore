@@ -155,6 +155,9 @@ mage_data
 # DLT
 .dlt/
 
+# Articles / drafts
+articles/
+
 # Terraform
 terraform/.terraform/
 terraform/.terraform.lock.hcl

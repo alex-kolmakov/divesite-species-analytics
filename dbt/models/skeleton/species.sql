@@ -16,10 +16,15 @@ SELECT
         WHEN invasive.scientificName IS NOT NULL THEN 'invasive'
         ELSE 'normal'
     END AS species_type,
-    null as Common_name,
-    null as Image_URL
+    CAST(null AS STRING) AS common_name,
+    CAST(null AS STRING) AS description,
+    CAST(null AS STRING) AS image_url
 FROM unique_species AS spec
-LEFT JOIN {{ source('marine_data', 'redlist_table') }} AS redlist
+LEFT JOIN (
+    SELECT DISTINCT scientificName FROM {{ source('marine_data', 'redlist_table') }}
+) AS redlist
     ON spec.species = redlist.scientificName
-LEFT JOIN {{ source('marine_data', 'invasive_table') }} AS invasive
+LEFT JOIN (
+    SELECT DISTINCT scientificName FROM {{ source('marine_data', 'invasive_table') }}
+) AS invasive
     ON spec.species = invasive.scientificName

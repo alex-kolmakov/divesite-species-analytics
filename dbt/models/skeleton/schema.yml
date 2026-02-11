@@ -3,92 +3,116 @@ version: 2
 models:
   - name: occurrences
     description: >
-      This model standardizes data from GBIF and OBIS datasets, merges them, and filters the occurrences
-      based on a reference species list from the WoRMS (World Register of Marine Species) table.
-      The data is partitioned by event_date (month granularity) and clustered by geography.
+      Unified occurrence table merging GBIF and OBIS data. Only species validated against the
+      WoRMS taxonomy are retained (INNER JOIN). Partitioned by event_date (month) and clustered
+      by geography for efficient spatial and temporal queries.
     columns:
       - name: event_date
-        description: >
-          The date of the event when the species occurrence was recorded. This is standardized
-          across GBIF and OBIS datasets and used as a partitioning field.
+        description: Timestamp of the observation, used as the partition key (month granularity).
         data_tests:
           - not_null
 
       - name: species
-        description: >
-          The scientific name of the species observed. It is standardized and validated against
-          the WoRMS scientificName field.
+        description: WoRMS-validated scientific name of the observed species.
         data_tests:
           - not_null
           - relationships:
-              to: marine_data.worms_table
+              to: source('marine_data', 'worms_table')
               field: scientificName
 
       - name: individual_count
-        description: >
-          The count of individuals observed during the event. This field is directly taken from
-          the GBIF and OBIS data sources and standardized for consistent aggregation.
+        description: Number of individuals observed (defaults to 1 when null in source).
         data_tests:
           - not_null
+
       - name: geography
-        description: >
-          The geographic location where the event occurred. It is a standardized field from
-          the GBIF and OBIS datasets and used as a clustering field.
+        description: Point geometry of the observation, used as the clustering key.
         data_tests:
           - not_null
 
       - name: source
-        description: >
-          The source of the observation data, either 'GBIF' or 'OBIS', to track data lineage and provenance.
+        description: Data provenance tag indicating which upstream dataset the row came from.
         data_tests:
           - not_null
           - accepted_values:
-              values:
-                - 'GBIF'
-                - 'OBIS'
+              values: ['GBIF', 'OBIS']
 
   - name: clustered_occurrences
     description: >
-      This model clusters the standardized occurrences data by species for optimized query performance.
-      It references the `occurences` model, which standardizes data from GBIF and OBIS datasets
-      and validates species against the WoRMS reference table.
+      Re-clustered copy of occurrences with species as the clustering key. Optimises
+      species-level lookups used by the search app and downstream aggregations.
     columns:
       - name: event_date
-        description: >
-          The date of the event when the species occurrence was recorded. This is inherited from
-          the `occurences` model and ensures consistent data formatting across downstream models.
+        description: Timestamp of the observation.
         data_tests:
           - not_null
 
       - name: species
-        description: >
-          The scientific name of the species observed. This field is used as the clustering key in this model
-          to optimize queries involving species-level analysis.
+        description: WoRMS-validated scientific name, used as the clustering key.
         data_tests:
           - not_null
-          - relationships:
-              to: marine_data.worms_table
-              field: scientificName
 
       - name: individual_count
-        description: >
-          The count of individuals observed during the event. This field is directly inherited
-          from the `occurences` model and ensures consistent aggregation and reporting.
+        description: Number of individuals observed.
         data_tests:
           - not_null
 
       - name: geography
-        description: >
-          The geographic location where the event occurred. This is inherited from the `occurences` model
-          for consistent geospatial analysis in downstream applications.
+        description: Point geometry of the observation.
         data_tests:
           - not_null
+
       - name: source
-        description: >
-          The source of the observation data, either 'GBIF' or 'OBIS', as inherited from the `occurences` model.
+        description: Data provenance tag (GBIF or OBIS).
         data_tests:
           - not_null
           - accepted_values:
-              values:
-                - 'GBIF'
-                - 'OBIS'
+              values: ['GBIF', 'OBIS']
+
+  - name: species
+    description: >
+      Deduplicated species reference table built from clustered_occurrences. Flags each species
+      as endangered (IUCN Red List), invasive (GISD), or normal via LEFT JOINs. Includes
+      placeholder columns (common_name, description, image_url) populated by the enrichment
+      pipeline (GBIF API for common names, Wikipedia REST for descriptions/images, Wikidata
+      SPARQL as image fallback).
+    columns:
+      - name: species
+        description: Unique scientific name. Primary key for this table.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: is_endangered
+        description: TRUE if the species appears on the IUCN Red List.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
+
+      - name: is_invasive
+        description: TRUE if the species appears in the Global Invasive Species Database.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
+
+      - name: species_type
+        description: >
+          Classification label derived from conservation status. Endangered takes priority
+          over invasive if a species appears in both lists.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['endangered', 'invasive', 'normal']
+
+      - name: common_name
+        description: Common English name from GBIF vernacular names API. NULL until enriched.
+
+      - name: description
+        description: Species description from Wikipedia REST API (first paragraph). NULL until enriched.
+
+      - name: image_url
+        description: Direct image URL from Wikipedia or Wikimedia Commons (via Wikidata fallback). NULL until enriched.

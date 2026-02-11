@@ -7,9 +7,9 @@ marine_species_data:
       project: gbif-412615
       dataset: marine_data
       threads: 4 # Must be a value of 1 or greater
-      keyfile: ../../secret.json
+      keyfile: ../secret.json
       location: US
-      max_bytes_billed: 1000000
+      max_bytes_billed: 5000000000 # 5GB safety cap for local dev
     mage:
       type: bigquery
       method: service-account
@@ -18,4 +18,4 @@ marine_species_data:
       threads: 4 # Must be a value of 1 or greater
       keyfile: /home/src/secret.json
       location: US
-      max_bytes_billed: 1000000
+      max_bytes_billed: 5000000000 # 5GB safety cap

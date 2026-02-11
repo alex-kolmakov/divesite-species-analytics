@@ -1,69 +1,70 @@
-
 version: 2
 
 models:
   - name: gbif_occurrences
-    description: |
-      GBIF (Global Biodiversity Information Facility) is an international network and research infrastructure that provides open access to biodiversity data. 
-      It retrieves information about the species, individual count, event date, geographical location, and source from the `bigquery-public-data.gbif.occurrences` table. 
-      The `geography` column is derived from the `decimallongitude` and `decimallatitude` columns using the `ST_GEOGPOINT` function. 
-      The data is sampled using TABLESAMPLE SYSTEM (1 PERCENT) when in development mode. This is the only way to avoid high data processing costs.
-      The latitude and longitude filters ensure that only occurrences within the specified range are included. 
+    description: >
+      Staged view over the GBIF (Global Biodiversity Information Facility) BigQuery public dataset.
+      Selects species, individual count, event date, and geography. Filters out rows missing
+      coordinates, dates, or species. In dev mode, uses TABLESAMPLE SYSTEM (0.01%) to minimise
+      bytes scanned.
     columns:
       - name: species
-        description: "The species of the occurrence. This field is required and must not be null."
+        description: Scientific name of the observed species.
         data_tests:
           - not_null
+
       - name: individualcount
-        description: "Count of individuals for the species. This field is required and must not be null."
+        description: Number of individuals observed (defaults to 1 when null in source).
         data_tests:
           - not_null
-      - name: geography
-        description: "The geographical location of the occurrence. This field is required and must not be null."
-        data_tests:
-          - not_null
+
       - name: eventdate
-        description: "The date of the occurrence. This field is required and must not be null."
+        description: Timestamp of the observation event.
+        data_tests:
+          - not_null
+
+      - name: geography
+        description: Point geometry derived from decimal longitude/latitude via ST_GEOGPOINT.
         data_tests:
           - not_null
 
   - name: obis_occurrences
-    description: |
-      OBIS (Ocean Biogeographic Information System) is a global open-access data and information clearing-house on marine biodiversity. 
-      It retrieves information about the species, individual count, event date, geographical location, and source from the `marine_data.obis_table` table.
-      Which represents fresh parquet file from https://obis.org/.
-      The `geography` column is derived from the `decimalLongitude` and `decimalLatitude` columns using the `ST_GEOGPOINT` function. 
-      The data is limited to 100 when in development mode. This is the only way to avoid high data processing costs.
-      The latitude and longitude filters ensure that only occurrences within the specified range are included.
+    description: >
+      Staged view over the OBIS (Ocean Biogeographic Information System) GCS parquet file.
+      Uses SAFE_CAST for type safety. In dev mode, applies a deterministic 1% hash-based
+      sample on species (FARM_FINGERPRINT) to avoid full table scans.
     columns:
       - name: species
-        description: "The species of the occurrence. This field is required and must not be null."
+        description: Scientific name of the observed species.
         data_tests:
           - not_null
+
       - name: individualcount
-        description: "Count of individuals for the species. This field is required and must not be null."
+        description: Number of individuals observed (defaults to 1 when null in source).
         data_tests:
           - not_null
-      - name: geography
-        description: "The geographical location of the occurrence. This field is required and must not be null."
-        data_tests:
-          - not_null
+
       - name: eventdate
-        description: "The date of the occurrence. This field is required and must not be null."
+        description: Timestamp of the observation event, cast from source string.
+        data_tests:
+          - not_null
+
+      - name: geography
+        description: Point geometry derived from decimal longitude/latitude via ST_GEOGPOINT.
         data_tests:
           - not_null
 
   - name: divesites
-    description: |
-      This model retrieves information about dive sites, including their titles and geographical locations, from the `marine_data.divesites_table` table.
-      The `geography` column is derived from the `longitude` and `latitude` columns using the `ST_GEOGPOINT` function.
-      The data is filtered to include only rows where the title is not null.
+    description: >
+      Materialized table of dive site locations sourced from the PADI dive-guide GCS parquet.
+      Clustered by geography for efficient spatial joins downstream.
     columns:
       - name: title
-        description: "The title of the dive site. This field is required and must not be null."
+        description: Human-readable name of the dive site. Not unique — different sites worldwide may share names.
         data_tests:
           - not_null
+
       - name: geography
-        description: "The geographical location of the dive site. This field is required and must not be null."
+        description: Point geometry of the dive site derived from longitude/latitude.
         data_tests:
           - not_null

@@ -3,191 +3,136 @@ version: 2
 models:
   - name: near_dive_site_occurrences
     description: >
-      This model calculates the nearest dive site for each species occurrence by joining the
-      `occurrences` and `divesites` tables. It ranks dive sites by their proximity to species 
-      occurrences and selects the closest site for each event. The proximity is determined based 
-      on a configurable distance threshold.
+      Joins every species occurrence to its nearest dive site within a configurable radius
+      (PROXIMITY_METERS env var). Uses a CROSS JOIN filtered by ST_DWithin, then ranks by
+      distance and keeps only the closest site (proximity_rank = 1). In dev mode, a 5%
+      hash-based species subsample reduces the cross-join cost.
     columns:
       - name: dive_site
-        description: >
-          The title of the nearest dive site. This is retrieved from the `divesites` table.
+        description: Name of the nearest dive site within the proximity threshold.
         data_tests:
           - not_null
           - relationships:
-              to: marine_data.divesites
+              to: ref('divesites')
               field: title
 
       - name: event_date
-        description: >
-          The date of the event when the species occurrence was recorded, as inherited from the
-          `occurrences` model. It is used for partitioning the ranking logic.
+        description: Timestamp of the observation.
         data_tests:
           - not_null
 
       - name: species
-        description: >
-          The scientific name of the species observed, as inherited from the `occurrences` model.
-          It ensures alignment with the WoRMS reference table.
+        description: WoRMS-validated scientific name of the observed species.
         data_tests:
           - not_null
           - relationships:
-              to: marine_data.worms_table
+              to: source('marine_data', 'worms_table')
               field: scientificName
 
       - name: individual_count
-        description: >
-          The count of individuals observed during the event, inherited from the `occurrences` model.
-          This is used for aggregations and analysis.
+        description: Number of individuals observed.
         data_tests:
           - not_null
 
       - name: distance_to_dive_site
-        description: >
-          The calculated distance between the species occurrence's geographic location and
-          the nearest dive site. Measured in meters, it is used to determine proximity.
+        description: Distance in metres between the occurrence and the matched dive site.
         data_tests:
           - not_null
 
       - name: geography
-        description: >
-          The geographic location of the species occurrence, inherited from the `occurrences` model.
-          This is used for spatial calculations and proximity ranking.
+        description: Point geometry of the occurrence.
         data_tests:
           - not_null
 
       - name: source
-        description: >
-          The source of the observation data, either 'GBIF' or 'OBIS', inherited from the `occurrences` model.
+        description: Data provenance tag (GBIF or OBIS).
         data_tests:
           - not_null
           - accepted_values:
-              values:
-                - 'GBIF'
-                - 'OBIS'
+              values: ['GBIF', 'OBIS']
 
       - name: proximity_rank
-        description: >
-          The rank of the dive site based on proximity to the species occurrence. This model filters 
-          for only the closest dive site, where the proximity rank equals 1.
+        description: Always 1 in this table since only the closest dive site is retained.
         data_tests:
           - not_null
+          - accepted_values:
+              values: [1]
+              quote: false
 
   - name: monthly_species_occurrences
     description: >
-      This model aggregates species sightings near dive sites on a monthly basis. It combines data
-      from the `near_divesite_occurrences` and `divesites` tables to count occurrences of species
-      at specific dive sites and includes geographic and temporal information.
+      Monthly aggregation of species sightings per dive site. Joins counts back to the
+      divesites table for geography metadata. Used by the Looker Studio dashboard for
+      temporal trend charts.
     columns:
       - name: dive_site
-        description: >
-          The title of the dive site where the species was sighted. This is retrieved from the 
-          `near_divesite_occurrences` model and joined with the `divesites` table for additional metadata.
+        description: Name of the dive site.
         data_tests:
           - not_null
 
       - name: species
-        description: >
-          The scientific name of the species observed near the dive site. This is inherited from 
-          the `near_divesite_occurrences` model and used for aggregations.
+        description: Scientific name of the species.
         data_tests:
           - not_null
-          - relationships:
-              to: marine_data.worms_table
-              field: scientificName
 
       - name: geography
-        description: >
-          The geographic coordinates of the dive site, retrieved from the `divesites` table. 
-          This field provides spatial context for species sightings.
+        description: Point geometry of the dive site.
         data_tests:
           - not_null
 
       - name: month
-        description: >
-          The month when the species sighting occurred, formatted as a three-letter abbreviation 
-          (e.g., Jan, Feb). This is derived from the `event_date` field for temporal aggregation.
+        description: Three-letter month abbreviation (e.g. Jan, Feb).
         data_tests:
           - not_null
           - accepted_values:
-              values:
-                - Jan
-                - Feb
-                - Mar
-                - Apr
-                - May
-                - Jun
-                - Jul
-                - Aug
-                - Sep
-                - Oct
-                - Nov
-                - Dec
+              values: [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
 
       - name: event_date
-        description: >
-          The exact date of the species sighting, as inherited from the `near_divesite_occurrences` model.
+        description: Observation date used for the aggregation.
         data_tests:
           - not_null
 
       - name: sighting_count
-        description: >
-          The count of sightings for a specific species at a dive site on a given date. This is aggregated 
-          from the `near_divesite_occurrences` model.
+        description: Number of occurrences for this species at this site on this date.
         data_tests:
           - not_null
 
   - name: divesite_species_frequency
     description: >
-      This model calculates the frequency of species sightings at each dive site and ranks them 
-      in descending order by their sighting count. It leverages the `near_divesite_occurrences` model 
-      for input data and provides ranked insights into species activity per dive site.
+      Species ranked by total sighting frequency at each dive site. Frequency rank 1
+      indicates the most commonly observed species. Used by the Looker Studio dashboard
+      and Streamlit app for "what lives here" queries.
     columns:
       - name: dive_site
-        description: >
-          The title of the dive site where species sightings occurred. This is inherited from 
-          the `near_divesite_occurrences` model and used as the partitioning key for ranking.
+        description: Name of the dive site.
         data_tests:
           - not_null
 
       - name: species
-        description: >
-          The scientific name of the species observed at the dive site. This field is inherited 
-          from the `near_divesite_occurrences` model and used for aggregation and ranking.
+        description: Scientific name of the species.
         data_tests:
           - not_null
-          - relationships:
-              to: marine_data.worms_table
-              field: scientificName
 
       - name: sighting_count
-        description: >
-          The total number of sightings for a specific species at a dive site, aggregated from 
-          the `near_divesite_occurrences` model.
+        description: Total number of occurrences for this species at this dive site.
         data_tests:
           - not_null
 
       - name: frequency_rank
-        description: >
-          The rank of the species at a dive site based on the sighting frequency, where 1 
-          indicates the most frequently sighted species. Calculated using the RANK() window function.
+        description: Rank by sighting count within the dive site (1 = most frequent).
         data_tests:
           - not_null
 
-
 exposures:
-
   - name: divesite_species_dashboard
     label: Divesite Species Dashboard
     type: dashboard
     maturity: high
     url: https://lookerstudio.google.com/s/ipP867eyaQw
-
-
     depends_on:
       - ref('divesite_species_frequency')
       - ref('monthly_species_occurrences')
       - ref('species')
-
     owner:
       email: aleksandr.kolmakov@pm.me
 
@@ -196,11 +141,8 @@ exposures:
     type: application
     maturity: high
     url: https://marine-species-search.streamlit.app/
-
-
     depends_on:
       - ref('clustered_occurrences')
       - ref('species')
-
     owner:
       email: aleksandr.kolmakov@pm.me

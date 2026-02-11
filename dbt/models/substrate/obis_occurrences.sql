@@ -4,7 +4,7 @@
 
 SELECT 
     species, 
-    IFNULL(SAFE_CAST(individualCount AS INT), 1) as individualcount, 
+    GREATEST(IFNULL(SAFE_CAST(individualCount AS INT), 1), 1) as individualcount,
     SAFE_CAST(eventDate AS TIMESTAMP) as eventdate, 
     ST_GEOGPOINT(decimalLongitude, decimalLatitude) as geography,
 FROM {{ source('marine_data', 'obis_table') }}
@@ -14,6 +14,6 @@ WHERE
     decimalLatitude IS NOT NULL AND 
     species IS NOT NULL
 
-{% if var("development", default=False) %} 
-    LIMIT 1000000
-{% endif %} 
+{% if env_var("DEVELOPMENT", "false") == "true" %}
+    AND MOD(FARM_FINGERPRINT(species), 100) = 0
+{% endif %}

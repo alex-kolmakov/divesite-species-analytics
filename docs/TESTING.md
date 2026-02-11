@@ -109,12 +109,52 @@ gsutil ls -l gs://marine_data_412615/redlist.parquet
 
 ---
 
-## D. Docker Testing
+## D. dbt Testing
+
+After ingestion has uploaded parquet files to GCS, run dbt locally:
+
+```bash
+cd dbt
+
+# Dry run — check compiled SQL without executing
+dbt compile
+
+# Run all models
+dbt run
+
+# Run with dev sampling (reduces bytes scanned)
+dbt run --vars '{development: true}'
+
+# Run a single model and its upstream dependencies
+dbt run --select +species
+
+# Run data tests
+dbt test
+
+# Run a specific test
+dbt test --select assert_species_type_consistent_with_flags
+```
+
+### Verify models
+
+```bash
+# Check the species table was created
+bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM marine_data.species'
+
+# Spot-check species flags
+bq query --use_legacy_sql=false \
+  'SELECT species_type, COUNT(*) FROM marine_data.species GROUP BY 1'
+```
+
+---
+
+## E. Docker Testing
 
 ### Build
 
 ```bash
 docker build -f Dockerfile.ingest -t ingest:local .
+docker build -f Dockerfile.dbt -t dbt:local .
 docker build -f Dockerfile.enrich -t enrich:local .
 ```
 
@@ -127,7 +167,13 @@ docker run --env-file .env \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/secret.json \
   ingest:local --source iucn
 
-# Test enrichment (needs BigQuery access)
+# Test dbt (needs BigQuery access via ADC or service account)
+docker run --env-file .env \
+  -v /path/to/secret.json:/app/secret.json:ro \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/secret.json \
+  dbt:local
+
+# Test enrichment (needs species table from dbt)
 docker run --env-file .env \
   -v /path/to/secret.json:/app/secret.json:ro \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/secret.json \
@@ -138,7 +184,7 @@ Check container logs for `Wrote parquet` and `Upload complete` messages to confi
 
 ---
 
-## E. Terraform Testing
+## F. Terraform Testing
 
 ```bash
 cd terraform
@@ -152,7 +198,9 @@ terraform plan
 # Expected resources in plan output:
 #  - google_storage_bucket.marine_data
 #  - google_bigquery_dataset.marine_data
-#  - google_cloud_run_v2_job.ingest
+#  - google_cloud_run_v2_job.ingestion
+#  - google_cloud_run_v2_job.dbt
+#  - google_cloud_run_v2_job.enrichment
 #  - google_artifact_registry_repository.marine
 #  - google_service_account.ingest_sa
 #  - google_project_iam_member (several bindings)
@@ -164,7 +212,7 @@ terraform apply
 
 ---
 
-## F. CI / Linting Testing
+## G. CI / Linting Testing
 
 ### Pre-commit hooks
 
@@ -191,7 +239,7 @@ pyrefly check
 
 ---
 
-## G. Expected Results per Source
+## H. Expected Results per Source
 
 | Source | Rows | File Size | Time | Output File |
 |--------|------|-----------|------|-------------|

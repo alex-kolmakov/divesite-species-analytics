@@ -2,7 +2,9 @@ python-dwca-reader
 pandas
 pyarrow
 aiohttp
+boto3
 duckdb
 requests
+python-dateutil
 tqdm
 google-cloud-storage
