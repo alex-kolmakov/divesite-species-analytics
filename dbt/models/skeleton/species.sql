@@ -1,6 +1,4 @@
-{{ config(
-    materialized='table')
-}}
+{{ config(materialized='table') }}
 
 WITH unique_species AS (
     SELECT DISTINCT species
@@ -15,10 +13,7 @@ SELECT
         WHEN redlist.scientificName IS NOT NULL THEN 'endangered'
         WHEN invasive.scientificName IS NOT NULL THEN 'invasive'
         ELSE 'normal'
-    END AS species_type,
-    CAST(null AS STRING) AS common_name,
-    CAST(null AS STRING) AS description,
-    CAST(null AS STRING) AS image_url
+    END AS species_type
 FROM unique_species AS spec
 LEFT JOIN (
     SELECT DISTINCT scientificName FROM {{ source('marine_data', 'redlist_table') }}

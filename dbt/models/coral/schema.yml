@@ -100,8 +100,8 @@ models:
   - name: divesite_species_frequency
     description: >
       Species ranked by total sighting frequency at each dive site. Frequency rank 1
-      indicates the most commonly observed species. Used by the Looker Studio dashboard
-      and Streamlit app for "what lives here" queries.
+      indicates the most commonly observed species. Intermediate table feeding the
+      denormalized UI models.
     columns:
       - name: dive_site
         description: Name of the dive site.
@@ -123,6 +123,168 @@ models:
         data_tests:
           - not_null
 
+  - name: species_divesite_summary
+    description: >
+      Denormalized table for species search → dive site distribution map.
+      Clustered by species for fast single-species lookups. Each row is a
+      (species, dive_site) pair with species metadata and dive site coordinates.
+    columns:
+      - name: species
+        description: Scientific name (cluster key). Use for WHERE species = 'X' queries.
+        data_tests:
+          - not_null
+
+      - name: common_name
+        description: English common name from GBIF (nullable — not all species have one).
+
+      - name: image_url
+        description: Wikipedia/Wikidata image URL (nullable).
+
+      - name: is_endangered
+        description: TRUE if species is on the IUCN Red List.
+        data_tests:
+          - not_null
+
+      - name: is_invasive
+        description: TRUE if species is in the Global Invasive Species Database.
+        data_tests:
+          - not_null
+
+      - name: species_type
+        description: Conservation status label for UI badges.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['endangered', 'invasive', 'normal']
+
+      - name: dive_site
+        description: Name of the dive site where this species has been observed.
+        data_tests:
+          - not_null
+
+      - name: dive_site_latitude
+        description: Latitude of the dive site for map marker placement.
+        data_tests:
+          - not_null
+
+      - name: dive_site_longitude
+        description: Longitude of the dive site for map marker placement.
+        data_tests:
+          - not_null
+
+      - name: sighting_count
+        description: Total number of occurrences for this species at this dive site.
+        data_tests:
+          - not_null
+
+      - name: frequency_rank
+        description: Rank of this species at this dive site (1 = most common).
+        data_tests:
+          - not_null
+
+  - name: divesite_species_detail
+    description: >
+      Denormalized table for dive site explorer → species panel.
+      Clustered by dive_site for fast single-site lookups. Each row is a
+      (dive_site, species) pair with full species metadata for rendering cards.
+    columns:
+      - name: dive_site
+        description: Dive site name (cluster key). Use for WHERE dive_site = 'X' queries.
+        data_tests:
+          - not_null
+
+      - name: dive_site_latitude
+        description: Latitude for map rendering.
+        data_tests:
+          - not_null
+
+      - name: dive_site_longitude
+        description: Longitude for map rendering.
+        data_tests:
+          - not_null
+
+      - name: species
+        description: Scientific name of the species.
+        data_tests:
+          - not_null
+
+      - name: common_name
+        description: English common name (nullable).
+
+      - name: description
+        description: Wikipedia extract for species info panel (nullable).
+
+      - name: image_url
+        description: Species image URL for card rendering (nullable).
+
+      - name: is_endangered
+        description: IUCN Red List flag for badge rendering.
+        data_tests:
+          - not_null
+
+      - name: is_invasive
+        description: GISD flag for badge rendering.
+        data_tests:
+          - not_null
+
+      - name: species_type
+        description: Conservation status label.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['endangered', 'invasive', 'normal']
+
+      - name: sighting_count
+        description: Total sightings at this dive site.
+        data_tests:
+          - not_null
+
+      - name: frequency_rank
+        description: Species popularity rank at this site (1 = most frequent).
+        data_tests:
+          - not_null
+
+  - name: divesite_summary
+    description: >
+      Lightweight overview table for the dive site map. One row per dive site with
+      species counts and coordinates. Small enough (~3,400 rows) to load entirely
+      on app initialization for map marker rendering.
+    columns:
+      - name: dive_site
+        description: Dive site name (not globally unique — some sites share names).
+        data_tests:
+          - not_null
+
+      - name: latitude
+        description: Latitude for map marker.
+        data_tests:
+          - not_null
+
+      - name: longitude
+        description: Longitude for map marker.
+        data_tests:
+          - not_null
+
+      - name: total_species
+        description: Number of distinct species observed near this dive site.
+        data_tests:
+          - not_null
+
+      - name: total_sightings
+        description: Total occurrence count across all species.
+        data_tests:
+          - not_null
+
+      - name: endangered_count
+        description: Number of IUCN Red List species at this site.
+        data_tests:
+          - not_null
+
+      - name: invasive_count
+        description: Number of invasive species at this site.
+        data_tests:
+          - not_null
+
 exposures:
   - name: divesite_species_dashboard
     label: Divesite Species Dashboard
@@ -139,10 +301,12 @@ exposures:
   - name: marine_species_search
     label: Marine Species Search App
     type: application
-    maturity: high
+    maturity: medium
     url: https://marine-species-search.streamlit.app/
     depends_on:
-      - ref('clustered_occurrences')
       - ref('species')
+      - ref('species_divesite_summary')
+      - ref('divesite_species_detail')
+      - ref('divesite_summary')
     owner:
       email: aleksandr.kolmakov@pm.me

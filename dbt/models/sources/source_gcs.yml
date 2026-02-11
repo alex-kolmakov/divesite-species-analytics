@@ -81,3 +81,18 @@ sources:
             description: Latitude of the dive site in decimal degrees.
           - name: longitude
             description: Longitude of the dive site in decimal degrees.
+
+      - name: species_enrichment
+        description: >
+          Species enrichment data populated by the enrichment pipeline (not managed by dbt).
+          Contains common names (GBIF API), descriptions (Wikipedia), and images
+          (Wikipedia/Wikidata). Survives dbt rebuilds since it lives outside the dbt DAG.
+        columns:
+          - name: species
+            description: Scientific name (foreign key to species table).
+          - name: common_name
+            description: English common name from GBIF vernacular names API.
+          - name: description
+            description: Species description from Wikipedia REST API (first paragraph).
+          - name: image_url
+            description: Direct image URL from Wikipedia or Wikimedia Commons.

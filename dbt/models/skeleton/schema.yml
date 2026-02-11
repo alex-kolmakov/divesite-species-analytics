@@ -72,10 +72,9 @@ models:
   - name: species
     description: >
       Deduplicated species reference table built from clustered_occurrences. Flags each species
-      as endangered (IUCN Red List), invasive (GISD), or normal via LEFT JOINs. Includes
-      placeholder columns (common_name, description, image_url) populated by the enrichment
-      pipeline (GBIF API for common names, Wikipedia REST for descriptions/images, Wikidata
-      SPARQL as image fallback).
+      as endangered (IUCN Red List), invasive (GISD), or normal via LEFT JOINs. Enrichment
+      data (common_name, description, image_url) lives in the separate species_enrichment
+      table managed by the enrichment pipeline.
     columns:
       - name: species
         description: Unique scientific name. Primary key for this table.
@@ -107,12 +106,3 @@ models:
           - not_null
           - accepted_values:
               values: ['endangered', 'invasive', 'normal']
-
-      - name: common_name
-        description: Common English name from GBIF vernacular names API. NULL until enriched.
-
-      - name: description
-        description: Species description from Wikipedia REST API (first paragraph). NULL until enriched.
-
-      - name: image_url
-        description: Direct image URL from Wikipedia or Wikimedia Commons (via Wikidata fallback). NULL until enriched.
