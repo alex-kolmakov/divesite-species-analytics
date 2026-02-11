@@ -29,21 +29,28 @@ OBIS_COLUMNS = [
     "interpreted.decimalLatitude AS decimalLatitude",
 ]
 
-# Download 16 files at once, process in batches
+OBIS_WHERE = (
+    "WHERE interpreted.species IS NOT NULL"
+    " AND interpreted.decimalLatitude IS NOT NULL"
+    " AND interpreted.decimalLongitude IS NOT NULL"
+)
+
 DOWNLOAD_WORKERS = 16
-# OBIS_BATCH_SIZE: 1 for local dev (fast feedback), 5+ for Cloud Run
 BATCH_SIZE = int(os.environ.get("OBIS_BATCH_SIZE", "1"))
 
 
+def _s3_client():
+    return boto3.client("s3", region_name="us-east-1",
+                        config=BotoConfig(signature_version=UNSIGNED))
+
+
 def _download_batch(keys: list[str], download_dir: str) -> list[str]:
-    """Download a batch of S3 files in parallel. Returns local paths."""
+    """Download S3 files in parallel with boto3. Returns local paths."""
 
     def _dl(key: str) -> str:
-        local_file = os.path.join(download_dir, key.rsplit("/", 1)[-1])
-        client = boto3.client("s3", region_name="us-east-1",
-                              config=BotoConfig(signature_version=UNSIGNED))
-        client.download_file(S3_BUCKET, key, local_file)
-        return local_file
+        local_path = os.path.join(download_dir, key.rsplit("/", 1)[-1])
+        _s3_client().download_file(S3_BUCKET, key, local_path)
+        return local_path
 
     paths = []
     with ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as pool:
@@ -56,47 +63,43 @@ def _download_batch(keys: list[str], download_dir: str) -> list[str]:
     return paths
 
 
+def _list_s3_keys() -> list[str]:
+    """List all parquet file keys in the OBIS S3 bucket."""
+    paginator = _s3_client().get_paginator("list_objects_v2")
+    keys = [
+        obj["Key"]
+        for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=S3_PREFIX)
+        for obj in page.get("Contents", [])
+        if obj["Key"].endswith(".parquet")
+    ]
+    keys.sort()
+    return keys
+
+
 def ingest_obis(config: Config) -> None:
     """Download OBIS parquet from S3 in parallel batches, process with DuckDB."""
-    os.makedirs(config.temp_dir, exist_ok=True)
-    output_path = os.path.join(config.temp_dir, "obis.parquet")
     download_dir = os.path.join(config.temp_dir, "obis_dl")
     parts_dir = os.path.join(config.temp_dir, "obis_parts")
-    os.makedirs(download_dir, exist_ok=True)
-    os.makedirs(parts_dir, exist_ok=True)
+    output_path = os.path.join(config.temp_dir, "obis.parquet")
+    for d in [download_dir, parts_dir]:
+        os.makedirs(d, exist_ok=True)
 
     columns_sql = ", ".join(OBIS_COLUMNS)
-    where_clause = (
-        "WHERE interpreted.species IS NOT NULL"
-        " AND interpreted.decimalLatitude IS NOT NULL"
-        " AND interpreted.decimalLongitude IS NOT NULL"
-    )
+    select_query = f"SELECT {columns_sql} FROM read_parquet($1) {OBIS_WHERE}"
 
-    # --- Phase 1: List S3 objects ---
+    # Phase 1: List S3 objects
     logger.info("Listing OBIS parquet files on S3...")
-    s3 = boto3.client("s3", region_name="us-east-1",
-                      config=BotoConfig(signature_version=UNSIGNED))
-    paginator = s3.get_paginator("list_objects_v2")
-    keys = []
-    for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=S3_PREFIX):
-        for obj in page.get("Contents", []):
-            if obj["Key"].endswith(".parquet"):
-                keys.append(obj["Key"])
-    keys.sort()
-    total_files = len(keys)
-    batches = [keys[i:i + BATCH_SIZE] for i in range(0, total_files, BATCH_SIZE)]
-    logger.info("Found %d files, split into %d batches of %d",
-                total_files, len(batches), BATCH_SIZE)
+    keys = _list_s3_keys()
+    batches = [keys[i:i + BATCH_SIZE] for i in range(0, len(keys), BATCH_SIZE)]
+    logger.info("Found %d files → %d batches of %d", len(keys), len(batches), BATCH_SIZE)
 
-    # --- Phase 2: Download batch → process → delete, repeat ---
+    # Phase 2: Download → process → delete per batch
     t_start = time.time()
-    total_rows = 0
     total_downloaded = 0
 
     for batch_idx, batch_keys in enumerate(batches):
         t_batch = time.time()
 
-        # Download this batch in parallel
         local_files = _download_batch(batch_keys, download_dir)
         total_downloaded += len(local_files)
         dl_time = time.time() - t_batch
@@ -105,51 +108,30 @@ def ingest_obis(config: Config) -> None:
             logger.warning("Batch %d: no files downloaded, skipping", batch_idx)
             continue
 
-        # Process with DuckDB → part file
         part_path = os.path.join(parts_dir, f"part_{batch_idx:04d}.parquet")
         con = duckdb.connect()
         con.sql(f"SET temp_directory = '{config.temp_dir}';")
-
-        file_list = [str(f) for f in local_files]
-        result = con.sql(
-            f"SELECT COUNT(*) FROM (SELECT {columns_sql} FROM read_parquet($1) {where_clause})",
-            params=[file_list],
-        ).fetchone()
-        rows = result[0]
-
-        con.sql(
-            f"COPY (SELECT {columns_sql} FROM read_parquet($1) {where_clause}) "
-            f"TO '{part_path}' (FORMAT PARQUET, CODEC 'ZSTD')",
-            params=[file_list],
-        )
+        con.sql(f"COPY ({select_query}) TO '{part_path}' (FORMAT PARQUET, CODEC 'ZSTD')",
+                params=[local_files])
         con.close()
-        total_rows += rows
-        proc_time = time.time() - t_batch - dl_time
 
-        # Delete raw files to free disk
         for f in local_files:
             Path(f).unlink(missing_ok=True)
 
         part_mb = Path(part_path).stat().st_size / 1_000_000
         elapsed = time.time() - t_start
-        logger.info(
-            "Batch %d/%d: %d files -> %d rows (%.1f MB) | "
-            "dl=%.0fs proc=%.0fs | %d/%d files done, %d total rows, %.0fs elapsed",
-            batch_idx + 1, len(batches), len(local_files), rows, part_mb,
-            dl_time, proc_time, total_downloaded, total_files, total_rows, elapsed,
-        )
+        logger.info("Batch %d/%d: %d files → %.1f MB | dl=%.0fs | %d/%d done, %.0fs elapsed",
+                    batch_idx + 1, len(batches), len(local_files), part_mb,
+                    dl_time, total_downloaded, len(keys), elapsed)
 
-    # --- Phase 3: Merge parts ---
+    # Phase 3: Merge parts
     part_files = sorted(Path(parts_dir).glob("*.parquet"))
-    logger.info("Merging %d parts into final parquet...", len(part_files))
-    merge_con = duckdb.connect()
-    merge_con.sql(f"SET temp_directory = '{config.temp_dir}';")
-    part_list = [str(p) for p in part_files]
-    merge_con.sql(
-        f"COPY (SELECT * FROM read_parquet($1)) TO '{output_path}' (FORMAT PARQUET, CODEC 'ZSTD')",
-        params=[part_list],
-    )
-    merge_con.close()
+    logger.info("Merging %d parts...", len(part_files))
+    con = duckdb.connect()
+    con.sql(f"SET temp_directory = '{config.temp_dir}';")
+    con.sql("COPY (SELECT * FROM read_parquet($1)) TO $2 (FORMAT PARQUET, CODEC 'ZSTD')",
+            params=[[str(p) for p in part_files], output_path])
+    con.close()
 
     for p in part_files:
         p.unlink(missing_ok=True)
@@ -157,11 +139,10 @@ def ingest_obis(config: Config) -> None:
     Path(download_dir).rmdir()
 
     file_mb = Path(output_path).stat().st_size / 1_000_000
-    logger.info("Final: %.1f MB (%d rows)", file_mb, total_rows)
+    logger.info("Final: %.1f MB", file_mb)
 
-    # --- Phase 4: Upload to GCS ---
+    # Phase 4: Upload to GCS
     upload_to_gcs(output_path, config.gcs_bucket, "obis.parquet", project=config.project_id)
     Path(output_path).unlink(missing_ok=True)
 
-    total_elapsed = time.time() - t_start
-    logger.info("OBIS ingestion complete in %.0fs", total_elapsed)
+    logger.info("OBIS ingestion complete in %.0fs", time.time() - t_start)
