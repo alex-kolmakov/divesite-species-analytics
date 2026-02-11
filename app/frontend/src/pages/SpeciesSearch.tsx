@@ -4,7 +4,7 @@ import type { LatLngBoundsExpression } from 'leaflet';
 import { api } from '../api/client';
 import type { Species, SpeciesSite } from '../api/client';
 import SpeciesCard from '../components/SpeciesCard';
-import FilterBar from '../components/FilterBar';
+import SpeciesModal from '../components/SpeciesModal';
 import './SpeciesSearch.css';
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
@@ -17,24 +17,24 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
 
 export default function SpeciesSearch() {
     const [query, setQuery] = useState('');
-    const [filter, setFilter] = useState('all');
     const [results, setResults] = useState<Species[]>([]);
     const [selected, setSelected] = useState<Species | null>(null);
     const [sites, setSites] = useState<SpeciesSite[]>([]);
     const [loading, setLoading] = useState(false);
+    const [modalSpecies, setModalSpecies] = useState<string | null>(null);
     const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    const search = useCallback((q: string, type: string) => {
+    const search = useCallback((q: string) => {
         if (q.length < 2) { setResults([]); return; }
         setLoading(true);
-        api.searchSpecies(q, type).then(setResults).finally(() => setLoading(false));
+        api.searchSpecies(q, 'all').then(setResults).finally(() => setLoading(false));
     }, []);
 
     useEffect(() => {
         clearTimeout(debounce.current);
-        debounce.current = setTimeout(() => search(query, filter), 300);
+        debounce.current = setTimeout(() => search(query), 300);
         return () => clearTimeout(debounce.current);
-    }, [query, filter, search]);
+    }, [query, search]);
 
     const selectSpecies = (sp: Species) => {
         setSelected(sp);
@@ -57,7 +57,6 @@ export default function SpeciesSearch() {
                     onChange={e => setQuery(e.target.value)}
                     autoFocus
                 />
-                <FilterBar active={filter} onChange={setFilter} />
 
                 <div className="species-list">
                     {loading && <p className="hint">Searching…</p>}
@@ -70,6 +69,7 @@ export default function SpeciesSearch() {
                             species={sp}
                             selected={selected?.species === sp.species}
                             onClick={() => selectSpecies(sp)}
+                            onDetail={() => setModalSpecies(sp.species)}
                         />
                     ))}
                 </div>
@@ -102,6 +102,13 @@ export default function SpeciesSearch() {
                     </div>
                 )}
             </section>
+
+            {modalSpecies && (
+                <SpeciesModal
+                    speciesName={modalSpecies}
+                    onClose={() => setModalSpecies(null)}
+                />
+            )}
         </div>
     );
 }

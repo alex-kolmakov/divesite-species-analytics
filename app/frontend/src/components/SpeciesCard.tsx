@@ -4,10 +4,11 @@ import './SpeciesCard.css';
 interface Props {
     species: Species | DiveSiteSpecies;
     onClick?: () => void;
+    onDetail?: () => void;
     selected?: boolean;
 }
 
-export default function SpeciesCard({ species, onClick, selected }: Props) {
+export default function SpeciesCard({ species, onClick, onDetail, selected }: Props) {
     return (
         <div
             className={`species-card${selected ? ' selected' : ''}`}
@@ -38,6 +39,16 @@ export default function SpeciesCard({ species, onClick, selected }: Props) {
                     )}
                 </div>
             </div>
+            {onDetail && (
+                <button
+                    className="species-card__detail-btn"
+                    onClick={e => { e.stopPropagation(); onDetail(); }}
+                    aria-label="View species details"
+                    title="View details"
+                >
+                    →
+                </button>
+            )}
         </div>
     );
 }

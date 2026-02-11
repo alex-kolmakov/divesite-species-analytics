@@ -48,6 +48,32 @@ def search_species(
     return [dict(zip(columns, row, strict=True)) for row in result]
 
 
+@router.get("/{species_name}")
+def species_detail(species_name: str) -> dict | None:
+    """Get detailed info about a species including description."""
+    conn = get_conn()
+
+    sql = """
+        SELECT species, common_name, description, image_url,
+               species_type, is_endangered, is_invasive,
+               SUM(sighting_count) as total_sightings,
+               COUNT(DISTINCT dive_site) as total_sites
+        FROM divesite_species_detail
+        WHERE species = ?
+        GROUP BY species, common_name, description, image_url,
+                 species_type, is_endangered, is_invasive
+    """
+    result = conn.execute(sql, [species_name]).fetchone()
+    if not result:
+        return None
+    columns = [
+        "species", "common_name", "description", "image_url",
+        "species_type", "is_endangered", "is_invasive",
+        "total_sightings", "total_sites",
+    ]
+    return dict(zip(columns, result, strict=True))
+
+
 @router.get("/{species_name}/sites")
 def species_sites(species_name: str) -> list[dict]:
     """Dive sites where a species has been observed, ordered by frequency."""

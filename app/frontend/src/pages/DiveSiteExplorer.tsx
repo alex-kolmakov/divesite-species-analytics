@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import { api } from '../api/client';
 import type { DiveSite, DiveSiteSpecies } from '../api/client';
 import SpeciesCard from '../components/SpeciesCard';
+import SpeciesModal from '../components/SpeciesModal';
 import FilterBar from '../components/FilterBar';
 import './DiveSiteExplorer.css';
 
@@ -29,6 +30,7 @@ export default function DiveSiteExplorer() {
     const [species, setSpecies] = useState<DiveSiteSpecies[]>([]);
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
+    const [modalSpecies, setModalSpecies] = useState<string | null>(null);
 
     useEffect(() => {
         api.divesites().then(s => { setSites(s); setLoading(false); });
@@ -106,13 +108,24 @@ export default function DiveSiteExplorer() {
                         <FilterBar active={filter} onChange={changeFilter} />
                         <div className="panel-species">
                             {species.map(sp => (
-                                <SpeciesCard key={sp.species} species={sp} />
+                                <SpeciesCard
+                                    key={sp.species}
+                                    species={sp}
+                                    onDetail={() => setModalSpecies(sp.species)}
+                                />
                             ))}
                             {species.length === 0 && <p className="hint">No species found</p>}
                         </div>
                     </>
                 )}
             </aside>
+
+            {modalSpecies && (
+                <SpeciesModal
+                    speciesName={modalSpecies}
+                    onClose={() => setModalSpecies(null)}
+                />
+            )}
         </div>
     );
 }

@@ -39,6 +39,18 @@ export interface DiveSiteSpecies {
     frequency_rank: number;
 }
 
+export interface SpeciesDetail {
+    species: string;
+    common_name: string | null;
+    description: string | null;
+    image_url: string | null;
+    species_type: 'endangered' | 'invasive' | 'normal';
+    is_endangered: boolean;
+    is_invasive: boolean;
+    total_sightings: number;
+    total_sites: number;
+}
+
 async function get<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE}${path}`);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -48,6 +60,9 @@ async function get<T>(path: string): Promise<T> {
 export const api = {
     searchSpecies: (q: string, type = 'all', limit = 20) =>
         get<Species[]>(`/species/search?q=${encodeURIComponent(q)}&type=${type}&limit=${limit}`),
+
+    speciesDetail: (name: string) =>
+        get<SpeciesDetail | null>(`/species/${encodeURIComponent(name)}`),
 
     speciesSites: (name: string) =>
         get<SpeciesSite[]>(`/species/${encodeURIComponent(name)}/sites`),
