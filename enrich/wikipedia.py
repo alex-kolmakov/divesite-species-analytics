@@ -82,7 +82,7 @@ async def get_wikipedia_data(
 
     found = {
         name: (desc, img)
-        for name, (desc, img) in zip(species_names, results)
+        for name, (desc, img) in zip(species_names, results, strict=True)
         if desc is not None or img is not None
     }
     logger.info("Wikipedia: got data for %d/%d species", len(found), len(species_names))

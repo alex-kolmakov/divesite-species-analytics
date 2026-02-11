@@ -42,7 +42,9 @@ def commons_thumb_url(file_page_url: str, width: int = 800) -> str:
     md5 = hashlib.md5(filename.encode()).hexdigest()
     a, ab = md5[0], md5[:2]
 
-    return f"https://upload.wikimedia.org/wikipedia/commons/thumb/{a}/{ab}/{quote(filename)}/{width}px-{quote(filename)}"
+    return (
+        f"https://upload.wikimedia.org/wikipedia/commons/thumb/{a}/{ab}/{quote(filename)}/{width}px-{quote(filename)}"
+    )
 
 
 def _build_values_clause(names: list[str]) -> str:

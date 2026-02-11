@@ -26,7 +26,7 @@ async def _get_common_name(
     async with semaphore:
         backoff = INITIAL_BACKOFF
 
-        for attempt in range(MAX_RETRIES + 1):
+        for _attempt in range(MAX_RETRIES + 1):
             try:
                 # Step 1: match scientific name to get usageKey
                 async with session.get(
@@ -59,11 +59,7 @@ async def _get_common_name(
                         return None
                     data = await resp.json()
 
-                eng_names = [
-                    r["vernacularName"]
-                    for r in data.get("results", [])
-                    if r.get("language") == "eng"
-                ]
+                eng_names = [r["vernacularName"] for r in data.get("results", []) if r.get("language") == "eng"]
                 return eng_names[0] if eng_names else None
 
             except aiohttp.ClientError:
@@ -89,10 +85,6 @@ async def get_common_names(
         tasks = [_get_common_name(name, session, semaphore) for name in species_names]
         results = await asyncio.gather(*tasks)
 
-    found = {
-        name: common
-        for name, common in zip(species_names, results)
-        if common is not None
-    }
+    found = {name: common for name, common in zip(species_names, results, strict=True) if common is not None}
     logger.info("GBIF: got common names for %d/%d species", len(found), len(species_names))
     return found

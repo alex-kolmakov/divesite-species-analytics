@@ -23,8 +23,7 @@ def download(
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
 
-        with tqdm(desc=url.split("/")[-1], total=total or None,
-                  unit="B", unit_scale=True, unit_divisor=1024) as pb:
+        with tqdm(desc=url.split("/")[-1], total=total or None, unit="B", unit_scale=True, unit_divisor=1024) as pb:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
                 pb.update(len(chunk))

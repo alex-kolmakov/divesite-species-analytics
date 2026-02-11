@@ -49,8 +49,7 @@ def _enrich_batch(species_names: list[str]) -> list[tuple]:
 
     # Phase 3: Wikidata images for species Wikipedia didn't cover
     species_without_image = [
-        name for name in species_names
-        if name not in wikipedia_data or wikipedia_data[name][1] is None
+        name for name in species_names if name not in wikipedia_data or wikipedia_data[name][1] is None
     ]
     wikidata_images: dict[str, str] = {}
     if species_without_image:
@@ -105,7 +104,9 @@ def main() -> int:
 
         logger.info(
             "Batch %d: %d/%d with data (common=%d, desc=%d, img=%d)",
-            batch_num, with_data, len(species_names),
+            batch_num,
+            with_data,
+            len(species_names),
             sum(1 for _, c, _, _ in rows if c),
             sum(1 for _, _, d, _ in rows if d),
             sum(1 for _, _, _, i in rows if i),
@@ -123,8 +124,12 @@ def main() -> int:
         if len(species_names) < config.batch_size:
             break
 
-    logger.info("Enrichment complete: %d species attempted, %d with data in %d batches",
-                total_attempted, total_with_data, batch_num)
+    logger.info(
+        "Enrichment complete: %d species attempted, %d with data in %d batches",
+        total_attempted,
+        total_with_data,
+        batch_num,
+    )
     return 0
 
 

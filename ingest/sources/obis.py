@@ -40,8 +40,7 @@ BATCH_SIZE = int(os.environ.get("OBIS_BATCH_SIZE", "1"))
 
 
 def _s3_client():
-    return boto3.client("s3", region_name="us-east-1",
-                        config=BotoConfig(signature_version=UNSIGNED))
+    return boto3.client("s3", region_name="us-east-1", config=BotoConfig(signature_version=UNSIGNED))
 
 
 def _download_batch(keys: list[str], download_dir: str) -> list[str]:
@@ -90,7 +89,7 @@ def ingest_obis(config: Config) -> None:
     # Phase 1: List S3 objects
     logger.info("Listing OBIS parquet files on S3...")
     keys = _list_s3_keys()
-    batches = [keys[i:i + BATCH_SIZE] for i in range(0, len(keys), BATCH_SIZE)]
+    batches = [keys[i : i + BATCH_SIZE] for i in range(0, len(keys), BATCH_SIZE)]
     logger.info("Found %d files → %d batches of %d", len(keys), len(batches), BATCH_SIZE)
 
     # Phase 2: Download → process → delete per batch
@@ -111,8 +110,7 @@ def ingest_obis(config: Config) -> None:
         part_path = os.path.join(parts_dir, f"part_{batch_idx:04d}.parquet")
         con = duckdb.connect()
         con.sql(f"SET temp_directory = '{config.temp_dir}';")
-        con.sql(f"COPY ({select_query}) TO '{part_path}' (FORMAT PARQUET, CODEC 'ZSTD')",
-                params=[local_files])
+        con.sql(f"COPY ({select_query}) TO '{part_path}' (FORMAT PARQUET, CODEC 'ZSTD')", params=[local_files])
         con.close()
 
         for f in local_files:
@@ -120,17 +118,27 @@ def ingest_obis(config: Config) -> None:
 
         part_mb = Path(part_path).stat().st_size / 1_000_000
         elapsed = time.time() - t_start
-        logger.info("Batch %d/%d: %d files → %.1f MB | dl=%.0fs | %d/%d done, %.0fs elapsed",
-                    batch_idx + 1, len(batches), len(local_files), part_mb,
-                    dl_time, total_downloaded, len(keys), elapsed)
+        logger.info(
+            "Batch %d/%d: %d files → %.1f MB | dl=%.0fs | %d/%d done, %.0fs elapsed",
+            batch_idx + 1,
+            len(batches),
+            len(local_files),
+            part_mb,
+            dl_time,
+            total_downloaded,
+            len(keys),
+            elapsed,
+        )
 
     # Phase 3: Merge parts
     part_files = sorted(Path(parts_dir).glob("*.parquet"))
     logger.info("Merging %d parts...", len(part_files))
     con = duckdb.connect()
     con.sql(f"SET temp_directory = '{config.temp_dir}';")
-    con.sql("COPY (SELECT * FROM read_parquet($1)) TO $2 (FORMAT PARQUET, CODEC 'ZSTD')",
-            params=[[str(p) for p in part_files], output_path])
+    con.sql(
+        "COPY (SELECT * FROM read_parquet($1)) TO $2 (FORMAT PARQUET, CODEC 'ZSTD')",
+        params=[[str(p) for p in part_files], output_path],
+    )
     con.close()
 
     for p in part_files:
