@@ -1,0 +1,58 @@
+/* App shell styles */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── Top navigation ─── */
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0 1.5rem;
+  height: 56px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 1100;
+}
+
+.topnav__brand {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  user-select: none;
+}
+
+.topnav__links {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: .9rem;
+  font-weight: 500;
+  transition: background .15s, color .15s;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text);
+}
+
+.nav-link.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ─── Main content ─── */
+.main {
+  flex: 1;
+  overflow: hidden;
+}

@@ -17,3 +17,7 @@ output "service_account_email" {
 output "registry_url" {
   value = local.registry_url
 }
+
+output "app_url" {
+  value = google_cloud_run_v2_service.app.uri
+}

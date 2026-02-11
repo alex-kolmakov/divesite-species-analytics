@@ -1,0 +1,65 @@
+.species-search {
+    display: flex;
+    height: 100%;
+}
+
+.species-search__sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.species-search__map {
+    flex: 1;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .15s;
+}
+
+.search-input:focus {
+    border-color: var(--accent);
+}
+
+.species-list {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.hint {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.map-stats {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, .85);
+    backdrop-filter: blur(8px);
+    color: #e2e8f0;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: .85rem;
+    z-index: 1000;
+}

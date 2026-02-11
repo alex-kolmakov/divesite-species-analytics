@@ -314,3 +314,76 @@ resource "google_cloud_scheduler_job" "weekly_ingestion" {
     }
   }
 }
+
+# ─── Cloud Run Service: UI App ───────────────────────────────────────────────
+
+resource "google_service_account" "app" {
+  account_id   = "marine-app-sa"
+  display_name = "Marine Species Explorer App"
+}
+
+resource "google_storage_bucket_iam_member" "app_gcs_reader" {
+  bucket = google_storage_bucket.data.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.app.email}"
+}
+
+resource "google_cloud_run_v2_service" "app" {
+  name     = "marine-species-explorer"
+  location = var.region
+
+  template {
+    containers {
+      image = "${local.registry_url}/app:latest"
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+
+      env {
+        name  = "GCS_BUCKET"
+        value = var.bucket_name
+      }
+      env {
+        name  = "EXPORT_PREFIX"
+        value = "app-export"
+      }
+
+      startup_probe {
+        http_get {
+          path = "/api/health"
+        }
+        initial_delay_seconds = 5
+        period_seconds        = 3
+        failure_threshold     = 10
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    service_account = google_service_account.app.email
+  }
+
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+    ]
+  }
+
+  depends_on = [google_artifact_registry_repository.images]
+}
+
+# Public access (unauthenticated)
+resource "google_cloud_run_v2_service_iam_member" "app_public" {
+  name     = google_cloud_run_v2_service.app.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+

@@ -1,8 +1,9 @@
 # Marine Species Analytics — Makefile
 #
-#   make setup      One-time: auth, APIs, Terraform
+#   make setup      One-time: auth, APIs, images, Terraform
 #   make deploy     Build images + run full pipeline
 #   make refresh    Re-run pipeline without rebuilding images
+#   make app-deploy Export data + build + deploy UI app
 #   make help       Show all targets
 #
 #   Add DEV=1 for development mode (sampled data, smaller batches):
@@ -63,9 +64,11 @@ setup: ## One-time: authenticate, enable GCP APIs, build images, deploy infrastr
 	docker build --platform $(PLATFORM) -f Dockerfile.ingest -t $(REGISTRY)/ingest:latest .
 	docker build --platform $(PLATFORM) -f Dockerfile.dbt    -t $(REGISTRY)/dbt:latest .
 	docker build --platform $(PLATFORM) -f Dockerfile.enrich -t $(REGISTRY)/enrich:latest .
+	docker build --platform $(PLATFORM) -t $(REGISTRY)/app:latest .
 	docker push $(REGISTRY)/ingest:latest
 	docker push $(REGISTRY)/dbt:latest
 	docker push $(REGISTRY)/enrich:latest
+	docker push $(REGISTRY)/app:latest
 	@echo "\n→ Applying Terraform..."
 	cd terraform && terraform apply -auto-approve $(TF_DEV_FLAG)
 	@echo "\n✓ Setup complete. Next: make deploy"
@@ -133,3 +136,38 @@ run-ingest:
 .PHONY: infra
 infra: ## Apply Terraform changes (after editing terraform/)
 	cd terraform && terraform init -input=false && terraform apply -auto-approve $(TF_DEV_FLAG)
+
+# ─── Data Export (BigQuery → GCS Parquet) ─────────────────────────────────────
+
+BQ_DATASET   := marine_data
+EXPORT_PREFIX := app-export
+APP_TABLES   := species_divesite_summary divesite_species_detail divesite_summary
+
+.PHONY: export-data
+export-data: ## Export app tables from BigQuery to GCS as Parquet
+	@echo "→ Exporting BigQuery tables to gs://$(BUCKET)/$(EXPORT_PREFIX)/"
+	@for table in $(APP_TABLES); do \
+		echo "  → $$table"; \
+		bq extract --destination_format=PARQUET \
+			'$(PROJECT_ID):$(BQ_DATASET).'"$$table" \
+			'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet'; \
+	done
+	@echo "✓ Data export complete."
+
+# ─── UI App ──────────────────────────────────────────────────────────────────
+
+APP_IMAGE := $(REGISTRY)/app:latest
+
+.PHONY: app-build
+app-build: ## Build and push the UI app Docker image
+	docker build --platform $(PLATFORM) -t $(APP_IMAGE) .
+	docker push $(APP_IMAGE)
+
+.PHONY: app-deploy
+app-deploy: export-data app-build ## Full app deployment: export data + build + deploy
+	gcloud run services update marine-species-explorer \
+		--region $(REGION) \
+		--image $(APP_IMAGE)
+	@echo "✓ App deployed. URL:"
+	@gcloud run services describe marine-species-explorer --region $(REGION) --format='value(status.url)'
+

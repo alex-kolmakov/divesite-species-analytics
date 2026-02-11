@@ -1,0 +1,4 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+duckdb>=1.2
+google-cloud-storage>=2.18
