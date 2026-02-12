@@ -1,0 +1,25 @@
+# Dockerfile.ingest – only needs ingest/ and requirements-ingest.txt
+node_modules/
+dist/
+.git
+.github
+__pycache__
+*.pyc
+.venv
+.env
+data/
+dbt/
+enrich/
+docs/
+tests/
+app/
+articles/
+*.md
+.ruff_cache/
+.streamlit/
+terraform/
+Makefile
+*.toml
+run.py
+scripts/
+logs/

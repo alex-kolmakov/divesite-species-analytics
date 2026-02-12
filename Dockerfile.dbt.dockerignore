@@ -1,0 +1,25 @@
+# Dockerfile.dbt – only needs dbt/
+node_modules/
+dist/
+.git
+.github
+__pycache__
+*.pyc
+.venv
+.env
+data/
+enrich/
+docs/
+tests/
+app/
+articles/
+*.md
+.ruff_cache/
+.streamlit/
+terraform/
+Makefile
+*.toml
+run.py
+ingest/
+scripts/
+logs/
