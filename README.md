@@ -22,44 +22,14 @@
 
 ## Architecture
 
-```
-                     ┌──────────────┐
-                     │  Cloud       │
-                     │  Scheduler   │
-                     └──────┬───────┘
-                            │ trigger
-                     ┌──────▼───────┐        ┌──────────────┐
-  OBIS (S3)  ───┐   │              │        │              │
-  IUCN (ZIP) ───┤   │  Cloud Run   │───────▶│     GCS      │
-  GISD (ZIP) ───┤──▶│  Ingest Job  │ upload │   (Parquet)  │
-  WoRMS (ZIP)───┤   │              │        │              │
-  PADI (API) ───┘   └──────────────┘        └──────┬───────┘
-                                                    │ external tables
-                     ┌──────────────┐        ┌──────▼───────┐
-                     │  Cloud Run   │        │              │
-                     │  dbt Job     │───────▶│   BigQuery   │
-                     │              │        │  (dbt models)│
-                     └──────────────┘        └──────┬───────┘
-                                                    │ species table
-                     ┌──────────────┐        ┌──────▼───────┐
-                     │  Enrichment  │        │              │
-                     │  (Cloud Run) │───────▶│   BigQuery   │
-                     │ GBIF+WP+WD  │ enrich │  (+ images)  │
-                     └──────────────┘        └──────┬───────┘
-                                                    │
-                                             ┌──────▼───────┐
-                                             │   Frontend   │
-                                             │  (Streamlit) │
-                                             └──────────────┘
-
-  Pipeline order: Ingest → dbt → Enrich
-```
+<!-- Source: docs/architecture.excalidraw — export to SVG after editing -->
+![Architecture](docs/architecture.svg)
 
 ## Data Sources
 
 | Source | Description | Records | Method |
 |--------|-------------|---------|--------|
-| [OBIS](https://obis.org) | Ocean Biogeographic Information System | ~5M+ occurrences | S3 Parquet via DuckDB |
+| [OBIS](https://obis.org) | Ocean Biogeographic Information System | ~162M occurrences | S3 Parquet via boto3 |
 | [GBIF](https://gbif.org) | Global Biodiversity Information Facility | Massive (sampled) | BigQuery public dataset |
 | [IUCN Red List](https://iucnredlist.org) | Endangered species assessments | ~255K | DwCA zip |
 | [GISD](http://griis.org) | Global Invasive Species Database | ~830 | DwCA zip |
@@ -97,56 +67,122 @@ The dbt project uses a **medallion architecture** with marine biology-themed lay
 ingest/              Python CLI - downloads, transforms, uploads to GCS
 enrich/              Species enrichment pipeline (GBIF + Wikipedia + Wikidata → BigQuery)
 dbt/                 dbt models (substrate / skeleton / coral)
+app/                 UI application (FastAPI backend + React frontend)
 terraform/           GCP infrastructure as code
+docs/                Setup, testing, and workflow guides
 .github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
-docs/                Setup and testing guides
 ```
 
-## Quick Start
+## Zero to Production
 
-> Full setup guide: [`docs/SETUP.md`](docs/SETUP.md) | Testing guide: [`docs/TESTING.md`](docs/TESTING.md)
+Follow steps 1–8 to go from a fresh clone to a fully deployed app. For GCP details and troubleshooting, see [`docs/SETUP.md`](docs/SETUP.md).
 
-### Prerequisites
+### 1. Prerequisites
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- GCP project with BigQuery and GCS
-- Docker (for container builds)
-- Terraform (for infrastructure)
+- [Docker](https://docs.docker.com/get-docker/)
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`, `bq`)
+- [Terraform](https://developer.hashicorp.com/terraform/install)
+- A GCP project (default: `gbif-412615`)
 
-### Setup
+### 2. Clone & Install
 
 ```bash
 git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
 cd divesite-species-analytics
-
-uv venv .venv && source .venv/bin/activate
-uv pip install -r requirements-ingest.txt -r requirements-enrich.txt -r requirements-dev.txt
-
-cp env.example .env   # edit with your values
+uv sync --all-extras
 ```
 
-### Local Development
+### 3. Create a GCP Service Account
+
+1. Go to **IAM & Admin > Service Accounts** in the GCP console
+2. Create a service account with these roles:
+   - Storage Admin, BigQuery Data Editor, BigQuery Job User
+   - Artifact Registry Administrator, Cloud Run Admin
+   - Secret Manager Admin, Service Account User, Service Usage Admin
+3. Create a JSON key and save it as `secret.json` in the project root (gitignored)
+
+### 4. Enable Required GCP APIs
+
+These three must be enabled manually before `make setup` can handle the rest:
+
+| API | Console Link |
+|-----|-------------|
+| Service Usage API | [Enable](https://console.cloud.google.com/apis/api/serviceusage.googleapis.com) |
+| Cloud Resource Manager API | [Enable](https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com) |
+| Secret Manager API | [Enable](https://console.cloud.google.com/apis/api/secretmanager.googleapis.com) |
+
+### 5. Configure Environment
 
 ```bash
-source .env
-
-python -m ingest --source iucn          # single source
-python -m ingest --source iucn,gisd     # multiple sources
-python -m ingest --source all           # everything
-
-cd dbt && dbt run && cd ..              # build BigQuery models
-python -m enrich                        # species enrichment (requires species table from dbt)
+cp env.example .env
+# Edit .env with your values (see docs/SETUP.md for full variable reference)
 ```
 
-### Production Deployment
+### 6. One-Time Setup
 
 ```bash
-make infra                       # deploy GCP infrastructure via Terraform
-make deploy                      # build images, push to Artifact Registry, run Cloud Run jobs
-make refresh                     # re-run Cloud Run jobs without rebuilding images
+make setup
 ```
 
-Run `make help` for the full list of targets.
+This authenticates with GCP, enables remaining APIs, builds and pushes Docker images, and applies Terraform infrastructure.
+
+### 7. Deploy the Pipeline
+
+```bash
+make deploy       # Build images + run: Ingest → dbt → Enrich
+```
+
+### 8. Deploy the App
+
+```bash
+make app-deploy   # Export data to GCS + build + deploy FastAPI/React app to Cloud Run
+```
+
+## Local Development
+
+For local runs, load environment variables and use `uv run`:
+
+```bash
+set -a && source .env && set +a
+export GOOGLE_APPLICATION_CREDENTIALS=secret.json
+
+# Ingest
+uv run python -m ingest --source iucn          # single source
+uv run python -m ingest --source iucn,gisd     # multiple sources
+uv run python -m ingest --all                  # everything
+
+# dbt
+cd dbt && uv run dbt run && cd ..
+
+# Enrich
+uv run python -m enrich --new-only             # only unattempted species
+
+# Local UI (see docs/LOCAL_DATA_WORKFLOW.md for full workflow)
+uv run python -m app.backend.main              # starts on http://localhost:8080
+```
+
+### Development Mode
+
+Add `DEV=1` to any `make` target to use sampled data and smaller batches — useful for faster iteration without processing the full ~162M OBIS dataset:
+
+```bash
+make deploy DEV=1
+make refresh DEV=1
+```
+
+## Makefile Quick Reference
+
+| Target | Description |
+|--------|-------------|
+| `make setup` | One-time: authenticate, enable GCP APIs, build images, deploy infrastructure |
+| `make deploy` | Build images, push to Artifact Registry, run full pipeline |
+| `make refresh` | Re-run pipeline without rebuilding images |
+| `make infra` | Apply Terraform changes |
+| `make export-data` | Rebuild enriched dbt models + export app tables to GCS |
+| `make app-build` | Build and push the UI app Docker image |
+| `make app-deploy` | Full app deployment: export data + build + deploy |
+| `make help` | Show all targets |
 
 ## CI/CD
 

@@ -1,8 +1,10 @@
 import argparse
 import asyncio
+import json
 import logging
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 from google.cloud import bigquery
@@ -18,6 +20,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+CHECKPOINT_DIR = Path("/tmp/enrich_checkpoints")
 
 ENRICHMENT_SCHEMA = [
     bigquery.SchemaField("species", "STRING", mode="REQUIRED"),
@@ -43,12 +47,12 @@ def _ensure_enrichment_table(client: bigquery.Client, table_id: str) -> None:
     logger.info("Enrichment table ready: %s", table_id)
 
 
-def _get_progress(client: bigquery.Client, species_table: str, enrichment_table: str) -> tuple[int, int, int]:
-    """Return (total_species, fully_enriched, partially_enriched) counts."""
+def _get_initial_stats(client: bigquery.Client, species_table: str, enrichment_table: str) -> dict:
+    """Get initial stats ONCE at start. Returns dict with all counts."""
     # Empty string '' means "tried but not found" — exclude from counts
     query = f"""
         SELECT
-            (SELECT COUNT(*) FROM `{species_table}`) AS total,
+            (SELECT COUNT(*) FROM `{species_table}`) AS total_species,
             (SELECT COUNT(*) FROM `{enrichment_table}`
              WHERE NULLIF(common_name, '') IS NOT NULL
                AND NULLIF(description, '') IS NOT NULL
@@ -61,18 +65,24 @@ def _get_progress(client: bigquery.Client, species_table: str, enrichment_table:
             ) AS with_any_data
     """
     row = list(client.query(query).result())[0]
-    return row.total, row.fully_enriched, row.with_any_data
+    return {
+        "total_species": row.total_species,
+        "fully_enriched": row.fully_enriched,
+        "with_any_data": row.with_any_data,
+    }
 
 
-def _fetch_batch(
+def _fetch_work_list(
     client: bigquery.Client,
     species_table: str,
     enrichment_table: str,
-    batch_size: int,
     *,
     new_only: bool = False,
 ) -> list[SpeciesRow]:
-    """Fetch species that need enrichment: unattempted + partially enriched."""
+    """
+    STAGE 1: Fetch ALL species that need enrichment ONCE.
+    Returns complete work list to process locally.
+    """
     if new_only:
         query = f"""
             SELECT s.species, NULL AS common_name, NULL AS description,
@@ -80,7 +90,6 @@ def _fetch_batch(
             FROM `{species_table}` AS s
             LEFT JOIN `{enrichment_table}` AS e ON s.species = e.species
             WHERE e.species IS NULL
-            LIMIT {batch_size}
         """
     else:
         query = f"""
@@ -98,12 +107,15 @@ def _fetch_batch(
                 LEFT JOIN `{enrichment_table}` AS e ON s.species = e.species
                 WHERE e.species IS NULL
             )
-            LIMIT {batch_size}
         """
+
+    logger.info("Fetching work list from BigQuery (this runs ONCE)...")
     df = client.query(query).to_dataframe()
+
     if df.empty:
         return []
-    return [
+
+    work_list = [
         SpeciesRow(
             species=str(row["species"]),
             common_name=str(row["common_name"]) if pd.notna(row["common_name"]) else None,
@@ -113,6 +125,9 @@ def _fetch_batch(
         )
         for _, row in df.iterrows()
     ]
+
+    logger.info("Fetched %d species to enrich", len(work_list))
+    return work_list
 
 
 async def _enrich_batch_async(batch: list[SpeciesRow]) -> list[SpeciesRow]:
@@ -179,13 +194,67 @@ async def _enrich_batch_async(batch: list[SpeciesRow]) -> list[SpeciesRow]:
     return enriched
 
 
-def _save_results(client: bigquery.Client, enrichment_table: str, enriched: list[SpeciesRow]) -> None:
-    """Upsert enriched species via staging table + MERGE (prevents duplicates)."""
+def _load_checkpoint(checkpoint_file: Path) -> tuple[list[SpeciesRow], int]:
+    """Load checkpoint: returns (completed_species, last_batch_idx)."""
+    if not checkpoint_file.exists():
+        return [], 0
+
+    with checkpoint_file.open("r") as f:
+        data = json.load(f)
+
+    completed = [
+        SpeciesRow(
+            species=s["species"],
+            common_name=s["common_name"],
+            description=s["description"],
+            image_url=s["image_url"],
+            is_new=s["is_new"],
+        )
+        for s in data["completed"]
+    ]
+
+    return completed, data["last_batch_idx"]
+
+
+def _save_checkpoint(checkpoint_file: Path, completed: list[SpeciesRow], last_batch_idx: int) -> None:
+    """Save checkpoint of completed work."""
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+
+    data = {
+        "completed": [
+            {
+                "species": s.species,
+                "common_name": s.common_name,
+                "description": s.description,
+                "image_url": s.image_url,
+                "is_new": s.is_new,
+            }
+            for s in completed
+        ],
+        "last_batch_idx": last_batch_idx,
+    }
+
+    with checkpoint_file.open("w") as f:
+        json.dump(data, f)
+
+    logger.info("  Checkpoint saved: %d species completed", len(completed))
+
+
+def _upload_results(client: bigquery.Client, enrichment_table: str, enriched: list[SpeciesRow]) -> None:
+    """
+    STAGE 3: Upload ALL enriched species in a single MERGE operation.
+    This runs ONCE at the end.
+    """
     if not enriched:
+        logger.info("No results to upload")
         return
 
     new_count = sum(1 for s in enriched if s.is_new)
     update_count = len(enriched) - new_count
+
+    logger.info(
+        "Uploading %d enriched species to BigQuery (%d new, %d updated)...", len(enriched), new_count, update_count
+    )
 
     temp_table = f"{enrichment_table}_staging"
     df = pd.DataFrame(
@@ -211,7 +280,7 @@ def _save_results(client: bigquery.Client, enrichment_table: str, enriched: list
     """
     client.query(query).result()
     client.delete_table(temp_table, not_found_ok=True)
-    logger.info("  Saved %d species (%d new, %d updated)", len(enriched), new_count, update_count)
+    logger.info("Upload complete: %d species saved to BigQuery", len(enriched))
 
 
 def main() -> int:
@@ -221,6 +290,16 @@ def main() -> int:
         action="store_true",
         help="Only enrich species not yet in the enrichment table (skip retrying partial rows)",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint if exists (automatically loads partial progress)",
+    )
+    parser.add_argument(
+        "--checkpoint-only",
+        action="store_true",
+        help="Upload checkpointed results to BigQuery without processing new species",
+    )
     args = parser.parse_args()
 
     config = EnrichConfig.from_env()
@@ -229,39 +308,90 @@ def main() -> int:
     enrichment_table = config.enrichment_table_id
     species_table = config.species_table_id
 
+    checkpoint_file = CHECKPOINT_DIR / "enrichment_progress.json"
+
     _ensure_enrichment_table(client, enrichment_table)
 
-    # Get initial progress
-    total_species, fully_enriched, with_any_data = _get_progress(client, species_table, enrichment_table)
+    # STAGE 0: Load checkpoint if resuming
+    completed_species = []
+    start_batch_idx = 0
+
+    if args.resume or args.checkpoint_only:
+        if checkpoint_file.exists():
+            completed_species, start_batch_idx = _load_checkpoint(checkpoint_file)
+            logger.info(
+                "Loaded checkpoint: %d species already completed (resuming from batch %d)",
+                len(completed_species),
+                start_batch_idx + 1,
+            )
+        else:
+            logger.info("No checkpoint found, starting fresh")
+            if args.checkpoint_only:
+                logger.error("--checkpoint-only requires existing checkpoint file")
+                return 1
+
+    # If --checkpoint-only, just upload and exit
+    if args.checkpoint_only:
+        _upload_results(client, enrichment_table, completed_species)
+        checkpoint_file.unlink()
+        logger.info("Checkpoint uploaded and cleared")
+        return 0
+
+    # STAGE 1: Fetch work list ONCE from BigQuery
+    stats = _get_initial_stats(client, species_table, enrichment_table)
     mode = "new only" if args.new_only else "new + retry partial"
     logger.info(
-        "Starting enrichment (%s): %s total species | %s fully enriched | %s with some data",
+        "Initial stats (%s): %s total species | %s fully enriched | %s with some data",
         mode,
-        f"{total_species:,}",
-        f"{fully_enriched:,}",
-        f"{with_any_data:,}",
+        f"{stats['total_species']:,}",
+        f"{stats['fully_enriched']:,}",
+        f"{stats['with_any_data']:,}",
     )
 
-    batch_num = 0
+    work_list = _fetch_work_list(
+        client,
+        species_table,
+        enrichment_table,
+        new_only=args.new_only,
+    )
 
-    while True:
+    if not work_list:
+        logger.info("No species need enrichment")
+        return 0
+
+    # Filter out already completed species if resuming
+    if completed_species:
+        completed_names = {s.species for s in completed_species}
+        work_list = [s for s in work_list if s.species not in completed_names]
+        logger.info("After filtering completed species: %d remaining to process", len(work_list))
+
+    if not work_list:
+        logger.info("All species in work list already completed in checkpoint")
+        _upload_results(client, enrichment_table, completed_species)
+        checkpoint_file.unlink()
+        return 0
+
+    # STAGE 2: Process locally in batches (NO BigQuery queries here)
+    logger.info(
+        "Starting local enrichment: %d species to process in batches of %d",
+        len(work_list),
+        config.batch_size,
+    )
+
+    batch_num = start_batch_idx
+    total_to_process = len(work_list)
+
+    for batch_start in range(0, len(work_list), config.batch_size):
         batch_num += 1
-        batch = _fetch_batch(
-            client,
-            species_table,
-            enrichment_table,
-            config.batch_size,
-            new_only=args.new_only,
-        )
-
-        if not batch:
-            break
+        batch = work_list[batch_start : batch_start + config.batch_size]
 
         new_count = sum(1 for s in batch if s.is_new)
         retry_count = len(batch) - new_count
+
         logger.info(
-            "Batch %d: %d species (%d new, %d retrying partial)",
+            "Batch %d/%d: %d species (%d new, %d retrying partial)",
             batch_num,
+            (total_to_process + config.batch_size - 1) // config.batch_size,
             len(batch),
             new_count,
             retry_count,
@@ -284,29 +414,38 @@ def main() -> int:
             got_img,
         )
 
-        _save_results(client, enrichment_table, enriched)
+        # Add to completed list
+        completed_species.extend(enriched)
 
-        # Update and log total progress
-        total_attempted = fully_enriched + (batch_num * config.batch_size)
-        attempted_pct = min(100.0, total_attempted / total_species * 100) if total_species else 0
+        # Save checkpoint after each batch
+        _save_checkpoint(checkpoint_file, completed_species, batch_num)
+
+        # Show accurate progress
+        processed_count = len(completed_species)
+        progress_pct = (processed_count / total_to_process * 100) if total_to_process else 0
         logger.info(
-            "  Progress: ~%s/%s attempted (%.1f%%)",
-            f"{total_attempted:,}",
-            f"{total_species:,}",
-            attempted_pct,
+            "  Progress: %s/%s species processed (%.1f%%)",
+            f"{processed_count:,}",
+            f"{total_to_process:,}",
+            progress_pct,
         )
 
-        if len(batch) < config.batch_size:
-            break
+    # STAGE 3: Upload all results in one MERGE operation
+    logger.info("Local enrichment complete. Uploading results to BigQuery...")
+    _upload_results(client, enrichment_table, completed_species)
+
+    # Clear checkpoint after successful upload
+    if checkpoint_file.exists():
+        checkpoint_file.unlink()
+        logger.info("Checkpoint cleared")
 
     # Final stats
-    total_species, fully_enriched, with_any_data = _get_progress(client, species_table, enrichment_table)
+    final_stats = _get_initial_stats(client, species_table, enrichment_table)
     logger.info(
-        "Enrichment complete in %d batches: %s/%s fully enriched, %s with some data",
-        batch_num,
-        f"{fully_enriched:,}",
-        f"{total_species:,}",
-        f"{with_any_data:,}",
+        "Enrichment complete: %s/%s fully enriched, %s with some data",
+        f"{final_stats['fully_enriched']:,}",
+        f"{final_stats['total_species']:,}",
+        f"{final_stats['with_any_data']:,}",
     )
     return 0
 

@@ -13,9 +13,7 @@
 ### Install dependencies
 
 ```bash
-uv venv .venv
-source .venv/bin/activate
-uv pip install -r requirements-ingest.txt -r requirements-enrich.txt -r requirements-dev.txt
+uv sync --all-extras
 ```
 
 ### Configure environment
@@ -246,7 +244,7 @@ pyrefly check
 | IUCN | ~255K | ~20MB | ~15s | `redlist.parquet` |
 | GISD | ~830 | <1MB | <1s | `invasive.parquet` |
 | WoRMS | ~593K | ~90MB | ~60s | `worms.parquet` |
-| OBIS | ~5M+ | ~80MB | 10-30min | `obis.parquet` |
+| OBIS | ~162M | ~686MB | ~47min | `obis.parquet` |
 | Divesites | ~3.4K | <1MB | ~90s | `divesites.parquet` |
 
 **Notes:**

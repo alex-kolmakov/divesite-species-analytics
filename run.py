@@ -45,8 +45,7 @@ def main():
     # Display species occurrences if selected_species is not None
     if st.session_state.selected_species:
         display_species_occurrences(st.session_state.selected_species)
-    elif st.session_state.show_species_list:
-        if "search_term" in st.session_state:
+    elif st.session_state.show_species_list and "search_term" in st.session_state:
             with st.spinner("Searching for species..."):
                 df = get_species(st.session_state.search_term)
             if not df.empty:
@@ -160,10 +159,10 @@ def is_valid_image_url(url):
     if pd.notnull(url) and url.strip() != "":
         url = url.strip()
         # Check if URL is valid
-        if validators.url(url):
-            # Optional: Check if URL ends with common image extensions
-            if any(url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".svg"]):
-                return True
+        if validators.url(url) and any(
+            url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".svg"]
+        ):
+            return True
     return False
 
 
