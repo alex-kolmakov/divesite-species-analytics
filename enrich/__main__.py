@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import sys
@@ -68,25 +69,37 @@ def _fetch_batch(
     species_table: str,
     enrichment_table: str,
     batch_size: int,
+    *,
+    new_only: bool = False,
 ) -> list[SpeciesRow]:
     """Fetch species that need enrichment: unattempted + partially enriched."""
-    query = f"""
-        SELECT species, common_name, description, image_url, is_new
-        FROM (
-            SELECT e.species, e.common_name, e.description, e.image_url, FALSE AS is_new
-            FROM `{enrichment_table}` AS e
-            WHERE (e.common_name IS NULL OR e.description IS NULL OR e.image_url IS NULL)
-              AND (e.common_name IS NOT NULL OR e.description IS NOT NULL OR e.image_url IS NOT NULL)
-
-            UNION ALL
-
-            SELECT s.species, NULL AS common_name, NULL AS description, NULL AS image_url, TRUE AS is_new
+    if new_only:
+        query = f"""
+            SELECT s.species, NULL AS common_name, NULL AS description,
+                   NULL AS image_url, TRUE AS is_new
             FROM `{species_table}` AS s
             LEFT JOIN `{enrichment_table}` AS e ON s.species = e.species
             WHERE e.species IS NULL
-        )
-        LIMIT {batch_size}
-    """
+            LIMIT {batch_size}
+        """
+    else:
+        query = f"""
+            SELECT species, common_name, description, image_url, is_new
+            FROM (
+                SELECT e.species, e.common_name, e.description, e.image_url, FALSE AS is_new
+                FROM `{enrichment_table}` AS e
+                WHERE (e.common_name IS NULL OR e.description IS NULL OR e.image_url IS NULL)
+                  AND (e.common_name IS NOT NULL OR e.description IS NOT NULL OR e.image_url IS NOT NULL)
+
+                UNION ALL
+
+                SELECT s.species, NULL AS common_name, NULL AS description, NULL AS image_url, TRUE AS is_new
+                FROM `{species_table}` AS s
+                LEFT JOIN `{enrichment_table}` AS e ON s.species = e.species
+                WHERE e.species IS NULL
+            )
+            LIMIT {batch_size}
+        """
     df = client.query(query).to_dataframe()
     if df.empty:
         return []
@@ -202,6 +215,14 @@ def _save_results(client: bigquery.Client, enrichment_table: str, enriched: list
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Enrich species with common names, descriptions, and images")
+    parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help="Only enrich species not yet in the enrichment table (skip retrying partial rows)",
+    )
+    args = parser.parse_args()
+
     config = EnrichConfig.from_env()
     client = bigquery.Client(project=config.project_id)
 
@@ -212,8 +233,10 @@ def main() -> int:
 
     # Get initial progress
     total_species, fully_enriched, with_any_data = _get_progress(client, species_table, enrichment_table)
+    mode = "new only" if args.new_only else "new + retry partial"
     logger.info(
-        "Starting enrichment: %s total species | %s fully enriched | %s with some data",
+        "Starting enrichment (%s): %s total species | %s fully enriched | %s with some data",
+        mode,
         f"{total_species:,}",
         f"{fully_enriched:,}",
         f"{with_any_data:,}",
@@ -223,7 +246,13 @@ def main() -> int:
 
     while True:
         batch_num += 1
-        batch = _fetch_batch(client, species_table, enrichment_table, config.batch_size)
+        batch = _fetch_batch(
+            client,
+            species_table,
+            enrichment_table,
+            config.batch_size,
+            new_only=args.new_only,
+        )
 
         if not batch:
             break

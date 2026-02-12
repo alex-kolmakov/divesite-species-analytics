@@ -2,6 +2,36 @@
 name = "marine-species-analytics"
 version = "0.1.0"
 requires-python = ">=3.11"
+dependencies = [
+    # Shared
+    "pandas",
+    "pyarrow",
+    "aiohttp",
+    "google-cloud-storage",
+    # Ingest
+    "python-dwca-reader",
+    "boto3",
+    "duckdb",
+    "requests",
+    "python-dateutil",
+    "tqdm",
+    # Enrich
+    "google-cloud-bigquery",
+    "db-dtypes",
+]
+
+[project.optional-dependencies]
+app = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+]
+dev = [
+    "ruff",
+    "pyrefly",
+    "pre-commit",
+    "pytest",
+    "httpx",
+]
 
 [tool.ruff]
 target-version = "py311"
