@@ -24,10 +24,10 @@ jobs:
         run: uv pip install --system -r requirements-dev.txt
 
       - name: Ruff lint
-        run: ruff check ingest/ enrich/
+        run: ruff check ingest/ enrich/ app/backend/
 
       - name: Ruff format check
-        run: ruff format --check ingest/ enrich/
+        run: ruff format --check ingest/ enrich/ app/backend/
 
   typecheck:
     name: Type Check
@@ -47,10 +47,36 @@ jobs:
         run: |
           uv pip install --system -r requirements-ingest.txt
           uv pip install --system -r requirements-enrich.txt
+          uv pip install --system -r requirements.txt
+          uv pip install --system -r app/backend/requirements.txt
           uv pip install --system -r requirements-dev.txt
 
       - name: Pyrefly type check
         run: pyrefly check
+
+  test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -r app/backend/requirements.txt
+          uv pip install --system -r requirements-dev.txt
+
+      - name: Run Pytest
+        env:
+          PYTHONPATH: .
+        run: pytest tests/
 
   docker:
     name: Docker Build

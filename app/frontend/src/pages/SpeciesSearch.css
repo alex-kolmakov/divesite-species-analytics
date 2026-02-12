@@ -9,7 +9,7 @@
     display: flex;
     flex-direction: column;
     gap: .75rem;
-    padding: 1.25rem 1rem;
+    padding: 1.5rem;
     overflow-y: auto;
     border-right: 1px solid var(--border);
     background: var(--bg);
@@ -42,6 +42,7 @@
     gap: .5rem;
     flex: 1;
     overflow-y: auto;
+    padding-top: 4px;
 }
 
 .hint {
@@ -50,16 +51,47 @@
     padding: 2rem 0;
 }
 
-.map-stats {
+/* ─── Map controls overlay ─── */
+.map-controls {
     position: absolute;
     bottom: 1rem;
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    z-index: 1000;
+}
+
+.map-stats {
     background: rgba(15, 23, 42, .85);
     backdrop-filter: blur(8px);
     color: #e2e8f0;
     padding: 8px 18px;
     border-radius: 20px;
     font-size: .85rem;
-    z-index: 1000;
+}
+
+.map-toggle {
+    background: rgba(15, 23, 42, .85);
+    backdrop-filter: blur(8px);
+    color: #e2e8f0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: .8rem;
+    border: 1px solid rgba(255, 255, 255, .1);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+
+.map-toggle:hover {
+    background: rgba(15, 23, 42, .95);
+    border-color: var(--accent);
+}
+
+.map-toggle.active {
+    background: rgba(6, 214, 160, .15);
+    border-color: var(--accent);
+    color: var(--accent);
 }

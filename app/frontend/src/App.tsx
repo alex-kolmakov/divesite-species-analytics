@@ -8,7 +8,12 @@ export default function App() {
     <BrowserRouter>
       <div className="app">
         <nav className="topnav">
-          <span className="topnav__brand">🐠 Marine Species Explorer</span>
+          <div className="topnav__brand">
+            <span className="topnav__logo">🤿</span>
+            <span className="topnav__wordmark">
+              <span className="topnav__wordmark-accent">Marine</span> Species Explorer
+            </span>
+          </div>
           <div className="topnav__links">
             <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Species Search

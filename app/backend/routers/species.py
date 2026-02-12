@@ -67,9 +67,15 @@ def species_detail(species_name: str) -> dict | None:
     if not result:
         return None
     columns = [
-        "species", "common_name", "description", "image_url",
-        "species_type", "is_endangered", "is_invasive",
-        "total_sightings", "total_sites",
+        "species",
+        "common_name",
+        "description",
+        "image_url",
+        "species_type",
+        "is_endangered",
+        "is_invasive",
+        "total_sightings",
+        "total_sites",
     ]
     return dict(zip(columns, result, strict=True))
 

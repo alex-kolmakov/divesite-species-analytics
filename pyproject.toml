@@ -6,12 +6,12 @@ requires-python = ">=3.11"
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-src = ["ingest", "enrich"]
+src = ["ingest", "enrich", "app/backend"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyrefly]
-project-includes = ["ingest/", "enrich/"]
+project-includes = ["ingest/", "enrich/", "app/backend/"]
 project-excludes = [".venv/"]
 python-version = "3.11"

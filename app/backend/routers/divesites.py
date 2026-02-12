@@ -21,9 +21,13 @@ def list_divesites() -> list[dict]:
     """
     result = conn.execute(sql).fetchall()
     columns = [
-        "dive_site", "latitude", "longitude",
-        "total_species", "total_sightings",
-        "endangered_count", "invasive_count",
+        "dive_site",
+        "latitude",
+        "longitude",
+        "total_species",
+        "total_sightings",
+        "endangered_count",
+        "invasive_count",
     ]
     return [dict(zip(columns, row, strict=True)) for row in result]
 
@@ -58,8 +62,14 @@ def divesite_species(
 
     result = conn.execute(sql, params).fetchall()
     columns = [
-        "species", "common_name", "description", "image_url",
-        "species_type", "is_endangered", "is_invasive",
-        "sighting_count", "frequency_rank",
+        "species",
+        "common_name",
+        "description",
+        "image_url",
+        "species_type",
+        "is_endangered",
+        "is_invasive",
+        "sighting_count",
+        "frequency_rank",
     ]
     return [dict(zip(columns, row, strict=True)) for row in result]

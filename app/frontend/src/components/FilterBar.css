@@ -1,7 +1,7 @@
 .filter-bar {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
 }
 
 .filter-chip {
@@ -13,6 +13,7 @@
     font-size: .85rem;
     cursor: pointer;
     transition: all .15s;
+    white-space: nowrap;
 }
 
 .filter-chip:hover {

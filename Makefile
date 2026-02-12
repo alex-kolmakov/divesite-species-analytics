@@ -144,7 +144,9 @@ EXPORT_PREFIX := app-export
 APP_TABLES   := species_divesite_summary divesite_species_detail divesite_summary
 
 .PHONY: export-data
-export-data: ## Export app tables from BigQuery to GCS as Parquet
+export-data: ## Rebuild enriched models + export app tables to GCS as Parquet
+	@echo "→ Rebuilding dbt models that use enrichment data..."
+	cd dbt && dbt run --select species_divesite_summary divesite_species_detail divesite_summary
 	@echo "→ Exporting BigQuery tables to gs://$(BUCKET)/$(EXPORT_PREFIX)/"
 	@for table in $(APP_TABLES); do \
 		echo "  → $$table"; \

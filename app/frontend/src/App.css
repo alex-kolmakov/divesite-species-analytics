@@ -1,4 +1,4 @@
-/* App shell styles */
+/* ─── App shell ─── */
 .app {
   display: flex;
   flex-direction: column;
@@ -11,44 +11,73 @@
   display: flex;
   align-items: center;
   gap: 2rem;
-  padding: 0 1.5rem;
-  height: 56px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 64px;
+  background: linear-gradient(135deg, #0a0f1e 0%, #131b2e 50%, #0f172a 100%);
+  border-bottom: 1px solid rgba(51, 65, 85, .6);
   flex-shrink: 0;
   z-index: 1100;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .35);
 }
 
 .topnav__brand {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: .65rem;
   user-select: none;
+  text-decoration: none;
 }
 
+.topnav__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #06d6a0 0%, #048a6a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  line-height: 1;
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(6, 214, 160, .25);
+}
+
+.topnav__wordmark {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--text);
+}
+
+.topnav__wordmark-accent {
+  color: var(--accent);
+}
+
+/* ─── Nav links ─── */
 .topnav__links {
   display: flex;
-  gap: 4px;
+  gap: .35rem;
+  margin-left: auto;
 }
 
 .nav-link {
-  padding: 8px 16px;
-  border-radius: 8px;
-  color: var(--text-muted);
   text-decoration: none;
-  font-size: .9rem;
+  font-size: .85rem;
   font-weight: 500;
-  transition: background .15s, color .15s;
+  color: var(--text-muted);
+  padding: 7px 16px;
+  border-radius: 8px;
+  transition: color .15s, background .15s;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, .06);
   color: var(--text);
+  background: rgba(255, 255, 255, .05);
 }
 
 .nav-link.active {
-  background: var(--accent);
-  color: #fff;
+  color: var(--accent);
+  background: rgba(6, 214, 160, .1);
 }
 
 /* ─── Main content ─── */

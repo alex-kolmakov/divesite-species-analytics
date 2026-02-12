@@ -1,3 +1,5 @@
 ruff
 pyrefly
 pre-commit
+pytest
+httpx

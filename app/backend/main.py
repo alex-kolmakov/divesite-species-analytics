@@ -1,9 +1,9 @@
 """Marine Species Explorer — FastAPI application."""
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -55,4 +55,7 @@ if STATIC_DIR.is_dir():
         file_path = STATIC_DIR / full_path
         if file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )

@@ -25,6 +25,7 @@ def get_conn() -> duckdb.DuckDBPyConnection:
 # Startup
 # ---------------------------------------------------------------------------
 
+
 def _load_from_gcs() -> None:
     """Download Parquet files from GCS into DuckDB."""
     from google.cloud import storage  # lazy import — not needed in local dev
