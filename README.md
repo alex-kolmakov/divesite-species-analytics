@@ -62,7 +62,7 @@ cp env.example .env              # edit with your GCP project ID, bucket, URLs
 make setup && make deploy && make app-deploy
 ```
 
-For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`docs/SETUP.md`](docs/SETUP.md).
+For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`SETUP.md`](docs/SETUP.md).
 
 ## Project Structure
 
