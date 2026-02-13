@@ -62,7 +62,7 @@ cp env.example .env              # edit with your GCP project ID, bucket, URLs
 make setup && make deploy && make app-deploy
 ```
 
-For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`docs/SETUP.md`](docs/SETUP.md).
+For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [SETUP.md](SETUP.md).
 
 ## Project Structure
 
@@ -72,7 +72,6 @@ enrich/              Species enrichment pipeline (GBIF + Wikipedia + Wikidata �
 dbt/                 dbt models (substrate / skeleton / coral)
 app/                 UI application (FastAPI backend + React frontend)
 terraform/           GCP infrastructure as code
-docs/                Setup, testing, architecture, and workflow guides
 .github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
 ```
 
@@ -101,11 +100,11 @@ uv run python -m app.backend.main            # start app on http://localhost:808
 
 Add `DEV=1` to any `make` target for sampled data and smaller batches: `make deploy DEV=1`
 
-See [`docs/LOCAL_DATA_WORKFLOW.md`](docs/LOCAL_DATA_WORKFLOW.md) for the full local workflow and [`docs/TESTING.md`](docs/TESTING.md) for testing each component.
+See [LOCAL_DATA_WORKFLOW.md](LOCAL_DATA_WORKFLOW.md) for the full local workflow and [TESTING.md](TESTING.md) for testing each component.
 
 ## Data Modeling
 
-The dbt project uses a **medallion architecture** with marine biology-themed layers (substrate → skeleton → coral). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for full details.
+The dbt project uses a **medallion architecture** with marine biology-themed layers (substrate → skeleton → coral). See [ARCHITECTURE.md](ARCHITECTURE.md) for full details.
 
 ```
  Substrate (raw)          Skeleton (cleaned)           Coral (analytics)
