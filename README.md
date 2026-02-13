@@ -2,7 +2,7 @@
 
 # Marine Species Analytics
 
-**Where biodiversity data meets dive site discovery**
+**Dive site biodiversity discovery**
 
 [![CI](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://python.org)
