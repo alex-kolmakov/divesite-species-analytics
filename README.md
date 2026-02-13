@@ -1,8 +1,8 @@
 <div align="center">
 
-# Marine Species Analytics
+# Dive site Species Analytics
 
-**Dive site biodiversity discovery**
+**Biodiversity discovery of places you can actually dive in**
 
 [![CI](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://python.org)
