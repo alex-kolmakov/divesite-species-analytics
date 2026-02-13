@@ -1,10 +1,21 @@
 # Marine Species Analytics — Makefile
 #
-#   make setup      One-time: auth, APIs, images, Terraform
-#   make deploy     Build images + run full pipeline
-#   make refresh    Re-run pipeline without rebuilding images
-#   make app-deploy Export data + build + deploy UI app
-#   make help       Show all targets
+# Local Development:
+#   make update-data  Enrich + rebuild dbt + export + download fresh data
+#   make app          Run app locally in Docker
+#
+# Cloud Deployment:
+#   make app-deploy   Build, push, deploy app to Cloud Run
+#   make app-destroy  Remove Cloud Run app (keeps all data)
+#
+# Data Pipeline (Cloud Run):
+#   make deploy       Build images + run full pipeline
+#   make refresh      Re-run pipeline without rebuilding images
+#
+# Infrastructure:
+#   make setup        One-time GCP setup
+#   make infra        Apply Terraform changes
+#   make help         Show all targets
 #
 #   Add DEV=1 for development mode (sampled data, smaller batches):
 #     make deploy DEV=1
@@ -20,11 +31,20 @@ REGISTRY     := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 SERVICE_KEY  ?= secret.json
 INGEST_JOB   := marine-data-ingestion
 PLATFORM     := linux/amd64
+APP_SERVICE  := marine-species-explorer
 
 export GOOGLE_APPLICATION_CREDENTIALS ?= $(CURDIR)/$(SERVICE_KEY)
 
 # Sources to ingest — each runs as a parallel Cloud Run execution
 INGEST_SOURCES := iucn gisd worms divesites obis
+
+# BigQuery export settings
+BQ_DATASET   ?= marine_data
+EXPORT_PREFIX := app-export
+APP_TABLES   := species_divesite_summary divesite_species_detail divesite_summary
+LOCAL_DATA    := app/backend/data
+
+APP_IMAGE := $(REGISTRY)/app:latest
 
 ifdef DEV
   TF_DEV_FLAG := -var="development=true"
@@ -38,7 +58,7 @@ endif
 help: ## Show all targets
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  Add DEV=1 for development mode (sampled data, smaller batches)"
 	@echo ""
@@ -64,16 +84,66 @@ setup: ## One-time: authenticate, enable GCP APIs, build images, deploy infrastr
 	docker build --platform $(PLATFORM) -f Dockerfile.ingest -t $(REGISTRY)/ingest:latest .
 	docker build --platform $(PLATFORM) -f Dockerfile.dbt    -t $(REGISTRY)/dbt:latest .
 	docker build --platform $(PLATFORM) -f Dockerfile.enrich -t $(REGISTRY)/enrich:latest .
-	docker build --platform $(PLATFORM) -t $(REGISTRY)/app:latest .
+	docker build --platform $(PLATFORM) -t $(APP_IMAGE) .
 	docker push $(REGISTRY)/ingest:latest
 	docker push $(REGISTRY)/dbt:latest
 	docker push $(REGISTRY)/enrich:latest
-	docker push $(REGISTRY)/app:latest
+	docker push $(APP_IMAGE)
 	@echo "\n→ Applying Terraform..."
 	cd terraform && terraform apply -auto-approve $(TF_DEV_FLAG)
 	@echo "\n✓ Setup complete. Next: make deploy"
 
-# ─── Pipeline ─────────────────────────────────────────────────────────────────
+# ─── Local Development ───────────────────────────────────────────────────────
+
+.PHONY: update-data
+update-data: ## Enrich + rebuild dbt + export + download fresh data locally
+	@echo "→ Step 1/4: Enriching species data..."
+	python -m enrich --new-only
+	@echo "→ Step 2/4: Rebuilding dbt coral models..."
+	cd dbt && dbt run --select species_divesite_summary divesite_species_detail divesite_summary
+	@echo "→ Step 3/4: Exporting tables to GCS..."
+	@for table in $(APP_TABLES); do \
+		echo "  → $$table"; \
+		bq extract --destination_format=PARQUET \
+			'$(PROJECT_ID):$(BQ_DATASET).'"$$table" \
+			'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet'; \
+	done
+	@echo "→ Step 4/4: Downloading parquets to $(LOCAL_DATA)/..."
+	@mkdir -p $(LOCAL_DATA)
+	@for table in $(APP_TABLES); do \
+		echo "  → $$table.parquet"; \
+		gsutil cp 'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet' $(LOCAL_DATA)/; \
+	done
+	@echo "✓ Data update complete. Run: make app"
+
+.PHONY: app
+app: ## Run app locally in Docker (uses local parquet data)
+	docker build -t marine-species-app .
+	docker run --rm -p 8080:8080 \
+		-v $(CURDIR)/$(LOCAL_DATA):/app/data \
+		-e LOCAL_DATA_DIR=/app/data \
+		marine-species-app
+
+# ─── Cloud Deployment (App) ──────────────────────────────────────────────────
+
+.PHONY: app-deploy
+app-deploy: ## Build, push, deploy app to Cloud Run
+	docker build --platform $(PLATFORM) -t $(APP_IMAGE) .
+	docker push $(APP_IMAGE)
+	cd terraform && terraform apply -auto-approve $(TF_DEV_FLAG)
+	gcloud run services update $(APP_SERVICE) \
+		--region $(REGION) \
+		--image $(APP_IMAGE)
+	@echo "✓ App deployed. URL:"
+	@gcloud run services describe $(APP_SERVICE) --region $(REGION) --format='value(status.url)'
+
+.PHONY: app-destroy
+app-destroy: ## Remove Cloud Run app (keeps all data)
+	gcloud run services delete $(APP_SERVICE) --region $(REGION) --quiet
+	@echo "✓ App removed. Data in GCS and BigQuery is preserved."
+	@echo "  Run 'make app-deploy' to recreate."
+
+# ─── Data Pipeline (Cloud Run) ───────────────────────────────────────────────
 #
 #   1. Ingest  — all sources run in PARALLEL (same image, different --args)
 #   2. dbt     — waits for all ingestion to finish, then builds models
@@ -131,45 +201,8 @@ run-ingest:
 		echo "  ✓ All ingest jobs complete."; \
 	fi
 
-# ─── Utilities ────────────────────────────────────────────────────────────────
+# ─── Infrastructure ──────────────────────────────────────────────────────────
 
 .PHONY: infra
 infra: ## Apply Terraform changes (after editing terraform/)
 	cd terraform && terraform init -input=false && terraform apply -auto-approve $(TF_DEV_FLAG)
-
-# ─── Data Export (BigQuery → GCS Parquet) ─────────────────────────────────────
-
-BQ_DATASET   := marine_data
-EXPORT_PREFIX := app-export
-APP_TABLES   := species_divesite_summary divesite_species_detail divesite_summary
-
-.PHONY: export-data
-export-data: ## Rebuild enriched models + export app tables to GCS as Parquet
-	@echo "→ Rebuilding dbt models that use enrichment data..."
-	cd dbt && dbt run --select species_divesite_summary divesite_species_detail divesite_summary
-	@echo "→ Exporting BigQuery tables to gs://$(BUCKET)/$(EXPORT_PREFIX)/"
-	@for table in $(APP_TABLES); do \
-		echo "  → $$table"; \
-		bq extract --destination_format=PARQUET \
-			'$(PROJECT_ID):$(BQ_DATASET).'"$$table" \
-			'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet'; \
-	done
-	@echo "✓ Data export complete."
-
-# ─── UI App ──────────────────────────────────────────────────────────────────
-
-APP_IMAGE := $(REGISTRY)/app:latest
-
-.PHONY: app-build
-app-build: ## Build and push the UI app Docker image
-	docker build --platform $(PLATFORM) -t $(APP_IMAGE) .
-	docker push $(APP_IMAGE)
-
-.PHONY: app-deploy
-app-deploy: export-data app-build ## Full app deployment: export data + build + deploy
-	gcloud run services update marine-species-explorer \
-		--region $(REGION) \
-		--image $(APP_IMAGE)
-	@echo "✓ App deployed. URL:"
-	@gcloud run services describe marine-species-explorer --region $(REGION) --format='value(status.url)'
-

@@ -12,34 +12,100 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pyrefly](https://img.shields.io/badge/types-pyrefly-F7DC6F?logo=python&logoColor=white)](https://github.com/facebook/pyrefly)
 
-*A marine biodiversity data platform combining multiple scientific datasets to answer:*
-
-**"Where can I find species X?"** · **"What lives near dive site Y?"**
+`162M+ ocean observations` · `7 scientific datasets` · `3,400+ dive sites` · `Full-stack app`
 
 </div>
 
 ---
 
-## Architecture
+A marine biodiversity data platform that combines multiple scientific datasets to answer two questions:
 
-<!-- Source: docs/architecture.excalidraw — export to SVG after editing -->
-![Architecture](docs/architecture.svg)
+- **"Where can I find species X?"** — Search for any marine species and see dive sites where it's been observed
+- **"What lives near dive site Y?"** — Browse dive sites on a map and discover which species are present
 
-## Data Sources
+![Screen Recording 2026-02-13 at 10 17 43 AM](https://github.com/user-attachments/assets/3b6efe2f-7d59-45c9-8dfc-155f0ab82318)
 
-| Source | Description | Records | Method |
-|--------|-------------|---------|--------|
-| [OBIS](https://obis.org) | Ocean Biogeographic Information System | ~162M occurrences | S3 Parquet via boto3 |
-| [GBIF](https://gbif.org) | Global Biodiversity Information Facility | Massive (sampled) | BigQuery public dataset |
-| [IUCN Red List](https://iucnredlist.org) | Endangered species assessments | ~255K | DwCA zip |
-| [GISD](http://griis.org) | Global Invasive Species Database | ~830 | DwCA zip |
-| [WoRMS](https://marinespecies.org) | World Register of Marine Species | ~593K | DwCA zip (auth) |
-| [PADI](https://padi.com) | Dive site locations globally | ~3.4K sites | REST API |
-| Enrichment APIs | Species common names, descriptions, images | On-demand | GBIF + Wikipedia REST + Wikidata SPARQL |
+
+## Data at a Glance
+
+| Source | Description | Records | Size | Ingestion |
+|--------|-------------|---------|------|-----------|
+| [OBIS](https://obis.org) | Ocean observations | ~162M | ~686MB | boto3 parallel (16 workers) from S3 |
+| [GBIF](https://gbif.org) | Biodiversity occurrences | Massive (sampled) | — | BigQuery public dataset |
+| [WoRMS](https://marinespecies.org) | Marine taxonomy | ~593K | ~90MB | DwCA zip (authenticated) |
+| [IUCN Red List](https://iucnredlist.org) | Endangered species | ~255K | ~20MB | DwCA zip |
+| [PADI](https://padi.com) | Dive site locations | ~3,400 sites | <1MB | Paginated REST API |
+| [GISD](http://griis.org) | Invasive species | ~830 | <1MB | DwCA zip |
+| Enrichment APIs | Names, descriptions, images | On-demand | — | GBIF + Wikipedia + Wikidata |
+
+## Engineering Highlights
+
+**40% faster OBIS ingestion** — boto3 parallel download (16 workers) + DuckDB batch processing replaced single-threaded DuckDB httpfs. 78 min → 47 min for 162M rows.
+
+**Fault-tolerant enrichment** — Checkpoint after every batch, resume from failure with `--resume`, upload partial results with `--checkpoint-only`. No work is lost on crash.
+
+**Parallel Cloud Run execution** — 5 ingest sources run simultaneously as separate Cloud Run job executions from the same container image.
+
+**Smart API fallback chain** — GBIF + Wikipedia run concurrently, then Wikidata as fallback for missing images. Rate limiting, exponential backoff, and jitter on all API calls.
+
+**Zero-cost app serving** — DuckDB in-memory on Parquet files, React frontend served as static files from FastAPI. Single container, no database server.
+
+## Quick Start
+
+**Prerequisites:** Python 3.11+, [uv](https://docs.astral.sh/uv/), Docker, [gcloud CLI](https://cloud.google.com/sdk/docs/install), [Terraform](https://developer.hashicorp.com/terraform/install), a GCP project with billing enabled.
+
+```bash
+git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
+cd divesite-species-analytics
+uv sync --all-extras
+cp env.example .env              # edit with your GCP project ID, bucket, URLs
+make setup && make deploy && make app-deploy
+```
+
+For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`docs/SETUP.md`](docs/SETUP.md).
+
+## Project Structure
+
+```
+ingest/              Python CLI - downloads, transforms, uploads to GCS
+enrich/              Species enrichment pipeline (GBIF + Wikipedia + Wikidata → BigQuery)
+dbt/                 dbt models (substrate / skeleton / coral)
+app/                 UI application (FastAPI backend + React frontend)
+terraform/           GCP infrastructure as code
+docs/                Setup, testing, architecture, and workflow guides
+.github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
+```
+
+## Makefile Quick Reference
+
+| Target | Description |
+|--------|-------------|
+| `make setup` | One-time: authenticate, enable GCP APIs, build images, deploy infrastructure |
+| `make deploy` | Build images, push to Artifact Registry, run full pipeline |
+| `make export-data` | Rebuild enriched dbt models + export app tables to GCS |
+| `make app-build` | Build and push the UI app Docker image |
+| `make app-deploy` | Full app deployment: export data + build + deploy |
+| `make help` | Show all targets |
+
+## Development
+
+```bash
+set -a && source .env && set +a
+export GOOGLE_APPLICATION_CREDENTIALS=secret.json
+
+uv run python -m ingest --source iucn       # ingest a single source
+cd dbt && uv run dbt run && cd ..            # build dbt models
+uv run python -m enrich --new-only           # enrich unattempted species
+uv run python -m app.backend.main            # start app on http://localhost:8080
+```
+
+Add `DEV=1` to any `make` target for sampled data and smaller batches: `make deploy DEV=1`
+
+See [`docs/LOCAL_DATA_WORKFLOW.md`](docs/LOCAL_DATA_WORKFLOW.md) for the full local workflow and [`docs/TESTING.md`](docs/TESTING.md) for testing each component.
 
 ## Data Modeling
 
-The dbt project uses a **medallion architecture** with marine biology-themed layers:
+The dbt project uses a **medallion architecture** with marine biology-themed layers (substrate → skeleton → coral). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for full details.
 
 ```
  Substrate (raw)          Skeleton (cleaned)           Coral (analytics)
@@ -51,139 +117,6 @@ The dbt project uses a **medallion architecture** with marine biology-themed lay
                                                 └─────────────────────────┘
 ```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `species` | STRING | Scientific species name |
-| `individualcount` | INTEGER | Individuals per sighting |
-| `eventdate` | TIMESTAMP | Observation timestamp |
-| `geography` | GEOGRAPHY | BigQuery POINT geometry |
-| `source` | STRING | Origin dataset (OBIS/GBIF) |
-| `is_invasive` | BOOLEAN | Flagged by GISD |
-| `is_endangered` | BOOLEAN | Flagged by IUCN Red List |
-
-## Project Structure
-
-```
-ingest/              Python CLI - downloads, transforms, uploads to GCS
-enrich/              Species enrichment pipeline (GBIF + Wikipedia + Wikidata → BigQuery)
-dbt/                 dbt models (substrate / skeleton / coral)
-app/                 UI application (FastAPI backend + React frontend)
-terraform/           GCP infrastructure as code
-docs/                Setup, testing, and workflow guides
-.github/workflows/   CI pipeline (lint, typecheck, Docker build, Terraform validate)
-```
-
-## Zero to Production
-
-Follow steps 1–8 to go from a fresh clone to a fully deployed app. For GCP details and troubleshooting, see [`docs/SETUP.md`](docs/SETUP.md).
-
-### 1. Prerequisites
-
-- Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- [Docker](https://docs.docker.com/get-docker/)
-- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`, `bq`)
-- [Terraform](https://developer.hashicorp.com/terraform/install)
-- A GCP project (default: `gbif-412615`)
-
-### 2. Clone & Install
-
-```bash
-git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
-cd divesite-species-analytics
-uv sync --all-extras
-```
-
-### 3. Create a GCP Service Account
-
-1. Go to **IAM & Admin > Service Accounts** in the GCP console
-2. Create a service account with these roles:
-   - Storage Admin, BigQuery Data Editor, BigQuery Job User
-   - Artifact Registry Administrator, Cloud Run Admin
-   - Secret Manager Admin, Service Account User, Service Usage Admin
-3. Create a JSON key and save it as `secret.json` in the project root (gitignored)
-
-### 4. Enable Required GCP APIs
-
-These three must be enabled manually before `make setup` can handle the rest:
-
-| API | Console Link |
-|-----|-------------|
-| Service Usage API | [Enable](https://console.cloud.google.com/apis/api/serviceusage.googleapis.com) |
-| Cloud Resource Manager API | [Enable](https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com) |
-| Secret Manager API | [Enable](https://console.cloud.google.com/apis/api/secretmanager.googleapis.com) |
-
-### 5. Configure Environment
-
-```bash
-cp env.example .env
-# Edit .env with your values (see docs/SETUP.md for full variable reference)
-```
-
-### 6. One-Time Setup
-
-```bash
-make setup
-```
-
-This authenticates with GCP, enables remaining APIs, builds and pushes Docker images, and applies Terraform infrastructure.
-
-### 7. Deploy the Pipeline
-
-```bash
-make deploy       # Build images + run: Ingest → dbt → Enrich
-```
-
-### 8. Deploy the App
-
-```bash
-make app-deploy   # Export data to GCS + build + deploy FastAPI/React app to Cloud Run
-```
-
-## Local Development
-
-For local runs, load environment variables and use `uv run`:
-
-```bash
-set -a && source .env && set +a
-export GOOGLE_APPLICATION_CREDENTIALS=secret.json
-
-# Ingest
-uv run python -m ingest --source iucn          # single source
-uv run python -m ingest --source iucn,gisd     # multiple sources
-uv run python -m ingest --all                  # everything
-
-# dbt
-cd dbt && uv run dbt run && cd ..
-
-# Enrich
-uv run python -m enrich --new-only             # only unattempted species
-
-# Local UI (see docs/LOCAL_DATA_WORKFLOW.md for full workflow)
-uv run python -m app.backend.main              # starts on http://localhost:8080
-```
-
-### Development Mode
-
-Add `DEV=1` to any `make` target to use sampled data and smaller batches — useful for faster iteration without processing the full ~162M OBIS dataset:
-
-```bash
-make deploy DEV=1
-make refresh DEV=1
-```
-
-## Makefile Quick Reference
-
-| Target | Description |
-|--------|-------------|
-| `make setup` | One-time: authenticate, enable GCP APIs, build images, deploy infrastructure |
-| `make deploy` | Build images, push to Artifact Registry, run full pipeline |
-| `make refresh` | Re-run pipeline without rebuilding images |
-| `make infra` | Apply Terraform changes |
-| `make export-data` | Rebuild enriched dbt models + export app tables to GCS |
-| `make app-build` | Build and push the UI app Docker image |
-| `make app-deploy` | Full app deployment: export data + build + deploy |
-| `make help` | Show all targets |
-
 ## CI/CD
 
 All checks run on every push and on pull requests to `main`:
@@ -194,15 +127,6 @@ All checks run on every push and on pull requests to `main`:
 | **Type Check** | Pyrefly static type analysis |
 | **Docker Build** | Builds `ingest`, `dbt`, and `enrich` container images |
 | **Terraform Validate** | Format check, init, and validate on `terraform/` |
-
-## [Dashboard](https://lookerstudio.google.com/s/vSQv3DXuGNQ)
-
-- Divesites and observations distribution between used sources
-- Invasive species near divesites
-- Endangered species near divesites
-- Top 20 invasive species near divesites
-
-<img width="1265" alt="Dashboard screenshot" src="https://github.com/alex-kolmakov/divesite-species-analytics/assets/3127175/3e01401b-4dce-41f4-af46-ee03aae6be33">
 
 ---
 

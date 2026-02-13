@@ -28,8 +28,8 @@ set -a && source .env && set +a
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `PROJECT_ID` | Yes | GCP project ID (`gbif-412615`) |
-| `GCS_BUCKET` | Yes | GCS bucket name (`marine_data_412615`) |
+| `PROJECT_ID` | Yes | GCP project ID |
+| `GCS_BUCKET` | Yes | GCS bucket name |
 | `IUCN_REDLIST_URL` | Yes | IUCN Red List DwCA zip URL |
 | `GISD_URL` | Yes | GISD DwCA zip URL |
 | `WORMS_URL_TEMPLATE` | Yes | WoRMS download URL template |
@@ -38,7 +38,7 @@ set -a && source .env && set +a
 | `WORMS_LOGIN` | Only for WoRMS | WoRMS authenticated download login |
 | `WORMS_PASSWORD` | Only for WoRMS | WoRMS authenticated download password |
 | `GOOGLE_APPLICATION_CREDENTIALS` | For GCS upload | Path to service account key JSON |
-| `BIGQUERY_DATASET` | Enrich only | BigQuery dataset name (`marine_data`) |
+| `BIGQUERY_DATASET` | Enrich only | BigQuery dataset name |
 | `TEMP_DIR` | No | Temporary directory (default: `/tmp/marine-data`) |
 
 **Note:** OBIS reads directly from the public AWS S3 bucket (`s3://obis-open-data`) via DuckDB - no URL config needed.
@@ -101,8 +101,8 @@ gcloud auth application-default login
 After running a source, verify the upload:
 
 ```bash
-gsutil ls gs://marine_data_412615/
-gsutil ls -l gs://marine_data_412615/redlist.parquet
+gsutil ls gs://$GCS_BUCKET/
+gsutil ls -l gs://$GCS_BUCKET/redlist.parquet
 ```
 
 ---

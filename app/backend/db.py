@@ -15,10 +15,10 @@ _conn: duckdb.DuckDBPyConnection | None = None
 
 
 def get_conn() -> duckdb.DuckDBPyConnection:
-    """Return the shared DuckDB connection (read-only queries only)."""
+    """Return a per-call cursor for thread-safe concurrent reads."""
     if _conn is None:
         raise RuntimeError("Database not initialised — call init_db() first")
-    return _conn
+    return _conn.cursor()
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,8 @@ def _load_from_gcs() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         for table in config.tables:
-            prefix = f"{config.export_prefix}/{table}/"
+            # Match both flat files (table.parquet) and subdirectories (table/)
+            prefix = f"{config.export_prefix}/{table}"
             blobs = list(bucket.list_blobs(prefix=prefix))
             if not blobs:
                 logger.warning("No blobs found for %s (prefix=%s)", table, prefix)

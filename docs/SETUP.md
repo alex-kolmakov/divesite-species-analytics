@@ -1,31 +1,83 @@
-# GCP Setup & Troubleshooting
+# Setup Guide
 
-This document covers GCP prerequisites, a complete environment variable reference, and common errors. For the deployment walkthrough, see the [README](../README.md#zero-to-production).
+Complete guide to deploying Marine Species Analytics — from a fresh GCP account to a running application.
+
+For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md). For local development, see [LOCAL_DATA_WORKFLOW.md](LOCAL_DATA_WORKFLOW.md).
+
+---
 
 ## Prerequisites
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- Docker
-- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+- [Docker](https://docs.docker.com/get-docker/)
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`, `bq`, `gsutil`)
 - [Terraform](https://developer.hashicorp.com/terraform/install)
-- A GCP project (default: `gbif-412615`)
+- A GCP project with billing enabled
 
-## GCP APIs
+## Starting from a Fresh GCP Account
 
-Three APIs must be enabled manually before `make setup`:
+If you don't have a GCP project yet:
 
-| API | Why |
-|-----|-----|
-| [Service Usage API](https://console.cloud.google.com/apis/api/serviceusage.googleapis.com) | Lets Terraform enable other APIs |
-| [Cloud Resource Manager API](https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com) | Lets Terraform manage project-level resources |
-| [Secret Manager API](https://console.cloud.google.com/apis/api/secretmanager.googleapis.com) | Stores WoRMS credentials securely |
+```bash
+# Create a new project (pick a unique ID)
+gcloud projects create <YOUR_PROJECT_ID> --name="Marine Species Analytics"
+gcloud config set project <YOUR_PROJECT_ID>
 
-`make setup` automatically enables the remaining APIs:
-- Cloud Run, Artifact Registry, BigQuery, IAM, Cloud Scheduler
+# Link a billing account (required for BigQuery, Cloud Run, etc.)
+gcloud billing accounts list
+gcloud billing projects link <YOUR_PROJECT_ID> --billing-account=<BILLING_ACCOUNT_ID>
+```
 
-## Service Account Roles
+> **Note:** GCS bucket names must be globally unique across all of Google Cloud. The default `marine_data_412615` will only work for the original project. Choose a unique name like `marine_data_<YOUR_PROJECT_ID>`.
 
-Create a service account in **IAM & Admin > Service Accounts** and grant these roles:
+---
+
+## Step-by-Step Deployment
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/alex-kolmakov/divesite-species-analytics.git
+cd divesite-species-analytics
+uv sync --all-extras
+```
+
+### 2. Create a GCP Service Account
+
+Create a service account with the required roles:
+
+```bash
+# Create the service account
+gcloud iam service-accounts create marine-analytics \
+  --display-name="Marine Analytics Pipeline" \
+  --project=<YOUR_PROJECT_ID>
+
+# Grant required roles
+SA_EMAIL="marine-analytics@<YOUR_PROJECT_ID>.iam.gserviceaccount.com"
+
+for role in \
+  roles/storage.admin \
+  roles/bigquery.dataEditor \
+  roles/bigquery.jobUser \
+  roles/artifactregistry.admin \
+  roles/run.admin \
+  roles/secretmanager.admin \
+  roles/iam.serviceAccountUser \
+  roles/serviceusage.serviceUsageAdmin; do
+  gcloud projects add-iam-policy-binding <YOUR_PROJECT_ID> \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="${role}" \
+    --quiet
+done
+
+# Create and download the JSON key
+gcloud iam service-accounts keys create secret.json \
+  --iam-account="${SA_EMAIL}"
+```
+
+The `secret.json` file is gitignored and should never be committed.
+
+### Service Account Roles Reference
 
 | Role | Purpose |
 |------|---------|
@@ -38,18 +90,80 @@ Create a service account in **IAM & Admin > Service Accounts** and grant these r
 | Service Account User | Allow Cloud Run to use the service account |
 | Service Usage Admin | Enable GCP APIs via `make setup` |
 
-Save the JSON key as `secret.json` in the project root (gitignored).
+### 3. Enable Required GCP APIs
+
+Three APIs must be enabled **manually** before `make setup` can handle the rest:
+
+| API | Console Link | Why |
+|-----|-------------|-----|
+| Service Usage API | [Enable](https://console.cloud.google.com/apis/api/serviceusage.googleapis.com) | Lets Terraform enable other APIs |
+| Cloud Resource Manager API | [Enable](https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com) | Lets Terraform manage project-level resources |
+| Secret Manager API | [Enable](https://console.cloud.google.com/apis/api/secretmanager.googleapis.com) | Stores WoRMS credentials securely |
+
+Or via CLI:
+
+```bash
+gcloud services enable serviceusage.googleapis.com --project=<YOUR_PROJECT_ID>
+gcloud services enable cloudresourcemanager.googleapis.com --project=<YOUR_PROJECT_ID>
+gcloud services enable secretmanager.googleapis.com --project=<YOUR_PROJECT_ID>
+```
+
+`make setup` automatically enables the remaining APIs (Cloud Run, Artifact Registry, BigQuery, IAM, Cloud Scheduler).
+
+### 4. Configure Environment
+
+```bash
+cp env.example .env
+# Edit .env with your project ID, bucket name, dataset URLs, etc.
+```
+
+See the [Environment Variables](#environment-variables) section below for the full reference.
+
+### 5. Configure Terraform
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your project ID, region, bucket name
+cd ..
+```
+
+### 6. One-Time Setup
+
+```bash
+make setup
+```
+
+This authenticates with GCP, enables remaining APIs, builds and pushes all Docker images, and applies Terraform infrastructure.
+
+### 7. Deploy the Pipeline
+
+```bash
+make deploy       # Build images + run: Ingest → dbt → Enrich
+```
+
+This runs the full data pipeline: ingest all sources in parallel, build dbt models, then enrich species data. Takes ~1 hour on first run (OBIS is ~47 min).
+
+### 8. Deploy the App
+
+```bash
+make app-deploy   # Export data to GCS + build + deploy FastAPI/React app to Cloud Run
+```
+
+The app URL will be printed when deployment completes.
+
+---
 
 ## Environment Variables
 
-Copy `env.example` to `.env` and fill in your values. All variables used across the project:
+Copy `env.example` to `.env` and fill in your values. The `.env` file uses quoted values for shell `source` compatibility; `Config.from_env()` strips quotes for Docker `--env-file` compatibility.
 
 ### GCP
 
 | Variable | Default | Used By | Description |
 |----------|---------|---------|-------------|
 | `PROJECT_ID` | — | ingest, enrich, terraform | GCP project ID |
-| `GCS_BUCKET` | — | ingest, app | GCS bucket name |
+| `GCS_BUCKET` | — | ingest, app | GCS bucket name (must be globally unique) |
 | `BIGQUERY_DATASET` | — | enrich | BigQuery dataset name |
 | `GOOGLE_APPLICATION_CREDENTIALS` | — | all | Path to service account key JSON |
 
@@ -88,11 +202,13 @@ Copy `env.example` to `.env` and fill in your values. All variables used across 
 |----------|---------|-------------|
 | `DEV=1` (Makefile) | off | Pass to `make deploy`/`make refresh` for sampled data and smaller batches |
 
+---
+
 ## Troubleshooting
 
 ### `PERMISSION_DENIED: Service Usage API has not been enabled`
 
-Enable the three prerequisite APIs manually (see [GCP APIs](#gcp-apis) above), then re-run `make setup`.
+Enable the three prerequisite APIs manually (see [step 3](#3-enable-required-gcp-apis) above), then re-run `make setup`.
 
 ### `invalid_grant` errors from `gcloud`
 
@@ -100,7 +216,7 @@ Your service account key or auth token has expired. Re-authenticate:
 
 ```bash
 gcloud auth activate-service-account --key-file=secret.json
-gcloud config set project gbif-412615
+gcloud config set project <YOUR_PROJECT_ID>
 ```
 
 ### Docker image fails silently on Cloud Run (no logs)
@@ -135,6 +251,6 @@ The `requests` library strips Basic Auth headers when following HTTPS-to-HTTP re
 The target `species_enrichment` table has duplicate rows. Deduplicate before running enrichment:
 
 ```sql
-CREATE OR REPLACE TABLE marine_data.species_enrichment AS
-SELECT DISTINCT * FROM marine_data.species_enrichment;
+CREATE OR REPLACE TABLE <YOUR_DATASET>.species_enrichment AS
+SELECT DISTINCT * FROM <YOUR_DATASET>.species_enrichment;
 ```
