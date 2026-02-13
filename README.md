@@ -12,7 +12,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pyrefly](https://img.shields.io/badge/types-pyrefly-F7DC6F?logo=python&logoColor=white)](https://github.com/facebook/pyrefly)
 
-`162M+ ocean observations` · `7 scientific datasets` · `3,400+ dive sites` · `Full-stack app`
+`663M+ ocean observations` · `7 scientific datasets` · `3,400+ dive sites` · `Full-stack cloud app`
 
 </div>
 
