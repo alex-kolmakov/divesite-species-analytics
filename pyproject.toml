@@ -41,6 +41,9 @@ src = ["ingest", "enrich", "app/backend"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.pyrefly]
 project-includes = ["ingest/", "enrich/", "app/backend/"]
 project-excludes = [".venv/"]

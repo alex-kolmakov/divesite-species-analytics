@@ -14,6 +14,8 @@ def list_divesites() -> list[dict]:
 
     sql = """
         SELECT dive_site, latitude, longitude,
+               country_iso3, avg_max_depth, avg_divetime,
+               avg_visibility, avg_rating, logged_dives, site_source,
                total_species, total_sightings,
                endangered_count, invasive_count
         FROM divesite_summary
@@ -24,6 +26,13 @@ def list_divesites() -> list[dict]:
         "dive_site",
         "latitude",
         "longitude",
+        "country_iso3",
+        "avg_max_depth",
+        "avg_divetime",
+        "avg_visibility",
+        "avg_rating",
+        "logged_dives",
+        "site_source",
         "total_species",
         "total_sightings",
         "endangered_count",

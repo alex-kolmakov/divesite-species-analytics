@@ -12,4 +12,8 @@ COPY dbt/profiles/profiles.yml profiles/profiles.yml
 RUN useradd --create-home appuser
 USER appuser
 
-ENTRYPOINT ["dbt", "run", "--profiles-dir", "/app/profiles", "--project-dir", "/app/dbt", "--log-path", "/tmp/dbt-logs", "--target-path", "/tmp/dbt-target"]
+ENTRYPOINT ["sh", "-c", "\
+  dbt deps --profiles-dir /app/profiles --project-dir /app/dbt --log-path /tmp/dbt-logs --target-path /tmp/dbt-target && \
+  dbt run-operation stage_external_sources --profiles-dir /app/profiles --project-dir /app/dbt --log-path /tmp/dbt-logs --target-path /tmp/dbt-target && \
+  dbt run --profiles-dir /app/profiles --project-dir /app/dbt --log-path /tmp/dbt-logs --target-path /tmp/dbt-target \
+"]

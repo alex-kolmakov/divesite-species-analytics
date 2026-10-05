@@ -247,8 +247,8 @@ models:
   - name: divesite_summary
     description: >
       Lightweight overview table for the dive site map. One row per dive site with
-      species counts and coordinates. Small enough (~3,400 rows) to load entirely
-      on app initialization for map marker rendering.
+      species counts, coordinates, and SSI dive metrics. Covers ~13,300 sites
+      (SSI primary + PADI supplement). Loaded entirely on app init for map marker rendering.
     columns:
       - name: dive_site
         description: Dive site name (not globally unique — some sites share names).
@@ -264,6 +264,31 @@ models:
         description: Longitude for map marker.
         data_tests:
           - not_null
+
+      - name: country_iso3
+        description: ISO 3166-1 alpha-3 country code (SSI sites only; null for PADI-only sites).
+
+      - name: avg_max_depth
+        description: Community average maximum depth in metres (SSI sites only).
+
+      - name: avg_divetime
+        description: Community average dive time in minutes (SSI sites only).
+
+      - name: avg_visibility
+        description: Community average visibility in metres (SSI sites only).
+
+      - name: avg_rating
+        description: Community average rating on a 1–5 scale (SSI sites only).
+
+      - name: logged_dives
+        description: Total dives logged by SSI users — proxy for site popularity (SSI sites only).
+
+      - name: site_source
+        description: Data origin — 'ssi' or 'padi'.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ssi', 'padi']
 
       - name: total_species
         description: Number of distinct species observed near this dive site.

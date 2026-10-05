@@ -66,21 +66,28 @@ sources:
           - name: scientificName
             description: Scientific name of the invasive species.
 
-      - name: divesites_table
+      - name: divesites_padi_table
         description: >
-          PADI dive site locations scraped from the dive-guide API. Contains site name and
-          coordinates for ~3,400 sites worldwide.
+          PADI dive site locations scraped from the dive-guide API. ~3,400 sites worldwide.
+          Supplementary source — SSI is primary. PADI fills ~2,700 locations not in SSI.
+          Schema auto-detected from Parquet (title, latitude, longitude + PADI internal fields).
         external:
           location: 'gs://marine_data_412615/divesites.parquet'
           options:
             format: parquet
-        columns:
-          - name: title
-            description: Human-readable name of the dive site.
-          - name: latitude
-            description: Latitude of the dive site in decimal degrees.
-          - name: longitude
-            description: Longitude of the dive site in decimal degrees.
+
+      - name: divesites_ssi_table
+        description: >
+          SSI (Scuba Schools International) dive site locations scraped from divessi.com.
+          ~10,600 sites worldwide with full community metrics. Primary dive site source —
+          3× more sites than PADI, with depth, visibility, ratings, and logged dive counts.
+          Schema auto-detected from Parquet (id, name, lat, lng, country_iso3, averageMaxDepth,
+          averageDivetime, averageVis, averageRating, loggedDives, level, wildlife,
+          description1, description2, URL, dcAffiliated, images).
+        external:
+          location: 'gs://marine_data_412615/ssi_divesites.parquet'
+          options:
+            format: parquet
 
       - name: species_enrichment
         description: >

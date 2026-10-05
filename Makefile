@@ -7,6 +7,7 @@
 # Cloud Deployment:
 #   make app-deploy   Build, push, deploy app to Cloud Run
 #   make app-destroy  Remove Cloud Run app (keeps all data)
+#   make teardown     Remove all GCP resources except data (BQ + GCS)
 #
 # Data Pipeline (Cloud Run):
 #   make deploy       Build images + run full pipeline
@@ -36,7 +37,7 @@ APP_SERVICE  := marine-species-explorer
 export GOOGLE_APPLICATION_CREDENTIALS ?= $(CURDIR)/$(SERVICE_KEY)
 
 # Sources to ingest — each runs as a parallel Cloud Run execution
-INGEST_SOURCES := iucn gisd worms divesites obis
+INGEST_SOURCES := iucn gisd worms divesites ssi obis
 
 # BigQuery export settings
 BQ_DATASET   ?= marine_data
@@ -142,6 +143,26 @@ app-destroy: ## Remove Cloud Run app (keeps all data)
 	gcloud run services delete $(APP_SERVICE) --region $(REGION) --quiet
 	@echo "✓ App removed. Data in GCS and BigQuery is preserved."
 	@echo "  Run 'make app-deploy' to recreate."
+
+.PHONY: teardown
+teardown: ## Remove all GCP resources EXCEPT data (BQ dataset + GCS bucket preserved)
+	@echo "→ Removing Cloud Run app service..."
+	-gcloud run services delete $(APP_SERVICE) --region $(REGION) --quiet 2>/dev/null
+	@echo "→ Removing Artifact Registry repository (images can be rebuilt locally)..."
+	-gcloud artifacts repositories delete $(AR_REPO) --location $(REGION) --quiet 2>/dev/null
+	@echo "→ Removing Secret Manager secrets..."
+	-gcloud secrets delete worms-login    --quiet 2>/dev/null
+	-gcloud secrets delete worms-password --quiet 2>/dev/null
+	@echo "→ Removing deleted resources from Terraform state..."
+	-cd terraform && terraform state rm google_cloud_run_v2_service.app 2>/dev/null
+	-cd terraform && terraform state rm google_artifact_registry_repository.marine_analytics 2>/dev/null
+	-cd terraform && terraform state rm google_secret_manager_secret.worms_login 2>/dev/null
+	-cd terraform && terraform state rm google_secret_manager_secret.worms_password 2>/dev/null
+	-cd terraform && terraform state rm google_project_iam_member.sa_secret_accessor 2>/dev/null
+	@echo ""
+	@echo "✓ Teardown complete. Preserved: GCS bucket, BigQuery dataset, Cloud Run Jobs."
+	@echo "  Cloud Run Jobs (ingest/dbt/enrich) are idle and cost \$$0."
+	@echo "  Run 'make setup' to recreate registry + secrets, then 'make deploy' to run."
 
 # ─── Data Pipeline (Cloud Run) ───────────────────────────────────────────────
 #

@@ -8,6 +8,7 @@ from ingest.sources.divesites import ingest_divesites
 from ingest.sources.gisd import ingest_gisd
 from ingest.sources.iucn import ingest_iucn
 from ingest.sources.obis import ingest_obis
+from ingest.sources.ssi import ingest_ssi
 from ingest.sources.worms import ingest_worms
 
 logging.basicConfig(
@@ -23,6 +24,7 @@ SOURCES = {
     "gisd": ingest_gisd,
     "worms": ingest_worms,
     "divesites": ingest_divesites,
+    "ssi": ingest_ssi,
 }
 
 
@@ -31,7 +33,7 @@ def main() -> int:
     parser.add_argument(
         "--source",
         default="all",
-        help="Source(s) to ingest: 'all' or comma-separated list (obis,iucn,gisd,worms,divesites)",
+        help="Source(s) to ingest: 'all' or comma-separated list (obis,iucn,gisd,worms,divesites,ssi)",
     )
     args = parser.parse_args()
 

@@ -25,7 +25,7 @@ External GCS parquet files loaded as BigQuery external tables. No transformation
 
 | Model | Source | Description |
 |-------|--------|-------------|
-| `divesites` | PADI REST API | ~3,400 dive site locations worldwide |
+| `divesites` | SSI + PADI | ~13,300 dive sites keyed by `site_id` (SSI ~10,600 primary + PADI ~2,700 not already in SSI: same name within 500 m, or within 25 m, counts as a duplicate) |
 | `gbif_occurrences` | GBIF BigQuery public dataset | Species occurrence records (sampled in dev) |
 | `obis_occurrences` | OBIS S3 bucket | ~162M occurrence records from ocean observations |
 
@@ -50,7 +50,7 @@ Denormalized tables optimized for the application's two primary queries.
 | `divesite_species_frequency` | Species ranked by sighting count at each dive site. Intermediate table feeding the UI models. |
 | `species_divesite_summary` | Denormalized for "Where can I find species X?" — clustered by `species` for fast single-species lookups. LEFT JOINs `species_enrichment` for common names and images. |
 | `divesite_species_detail` | Denormalized for "What lives near dive site Y?" — clustered by `dive_site` for fast single-site lookups. LEFT JOINs `species_enrichment` for descriptions and images. |
-| `divesite_summary` | One row per dive site with species counts and coordinates (~3,400 rows). Loaded entirely on app startup. |
+| `divesite_summary` | One row per dive site with species counts and coordinates (~13,300 rows). Loaded entirely on app startup. |
 
 ### Core Column Schema
 
@@ -91,7 +91,8 @@ Each data source has a dedicated handler in `ingest/`. All sources are run as **
 | IUCN Red List | ~255K | ~20MB | ~15s | DwCA zip download + parse |
 | GISD | ~830 | <1MB | <1s | DwCA zip download + parse |
 | WoRMS | ~593K | ~90MB | ~60s | DwCA zip (authenticated download) |
-| Divesites | ~3,400 | <1MB | ~90s | Paginated REST API scrape |
+| Divesites (PADI) | ~3,400 | <1MB | ~90s | Paginated REST API scrape |
+| SSI | ~10,600 | <1MB | ~3min | Session auth + async tile subdivision |
 | OBIS | ~162M | ~686MB | ~47min | boto3 parallel download (16 workers) from S3 + DuckDB batch processing |
 
 ### OBIS Optimization
@@ -188,7 +189,7 @@ The application is a **single-container deployment** with no external database s
 |-------|---------|------|
 | `species_divesite_summary` | Species → dive site mapping for search | Clustered by species |
 | `divesite_species_detail` | Dive site → species list for explorer | Clustered by dive_site |
-| `divesite_summary` | Map markers with species counts | ~3,400 rows |
+| `divesite_summary` | Map markers with species counts | ~13,300 rows |
 
 ---
 
@@ -203,7 +204,8 @@ Ingest (parallel)          dbt                    Enrich
 │ GISD    ─┤   │      │ substrate│          │ Wikipedia    │
 │ WoRMS   ─┼──▶│──▶   │ skeleton │──▶       │ Wikidata     │
 │ PADI    ─┤   │      │ coral    │          │              │
-│ OBIS    ─┘   │      │          │          │ → BigQuery   │
+│ SSI     ─┤   │      │          │          │ → BigQuery   │
+│ OBIS    ─┘   │      │          │          │              │
 └──────────────┘      └──────────┘          └──────────────┘
      GCS                 BigQuery              species_enrichment
 ```

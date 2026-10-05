@@ -9,19 +9,19 @@ def test_client():
     # Setup: Initialize DB with in-memory connection
     # We can perform any necessary setup for the in-memory DB here if needed
     # For now, just ensuring it's initialized is enough as init_db does that.
-    
-    # Override the lifespan or manually call init_db/close_db if strictly needed, 
+
+    # Override the lifespan or manually call init_db/close_db if strictly needed,
     # but TestClient with FastAPI app usually handles lifespan if using a context manager,
-    # OR we can manually trigger it. 
-    # However, since init_db is designed to load data, we might want to mock the data loading 
+    # OR we can manually trigger it.
+    # However, since init_db is designed to load data, we might want to mock the data loading
     # to avoid GCS calls or local file dependencies during tests if they don't exist.
-    
-    # For a simple test, we will mock the data loading part or ensure it fails gracefully 
-    # but still gives us a valid connection. 
-    
+
+    # For a simple test, we will mock the data loading part or ensure it fails gracefully
+    # but still gives us a valid connection.
+
     # Mock the config object entirely
     from unittest.mock import MagicMock, patch
-    
+
     # Create a mock config that mimics the structure but has empty tables
     mock_config = MagicMock()
     mock_config.tables = ()
@@ -31,19 +31,22 @@ def test_client():
     # Initialize DB manually with mocked config to get a clean state
     with patch("app.backend.db.config", mock_config):
         init_db()
-    
+
     # Create some dummy data for testing
     conn = get_conn()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS divesite_summary (
             dive_site VARCHAR, latitude DOUBLE, longitude DOUBLE,
+            country_iso3 VARCHAR, avg_max_depth DOUBLE, avg_divetime DOUBLE,
+            avg_visibility DOUBLE, avg_rating DOUBLE, logged_dives BIGINT,
+            site_source VARCHAR,
             total_species INTEGER, total_sightings INTEGER,
             endangered_count INTEGER, invasive_count INTEGER
         )
     """)
     conn.execute(
         "INSERT INTO divesite_summary VALUES"
-        " ('Site A', 10.0, 10.0, 5, 10, 1, 0)"
+        " ('Site A', 10.0, 10.0, 'PHL', 18.0, 45.0, 15.0, 4.5, 3200, 'ssi', 5, 10, 1, 0)"
     )
 
     conn.execute("""
@@ -74,10 +77,10 @@ def test_client():
         " ('Species A', 'Common A', 'Desc A', 'http://example.com/a.jpg',"
         " 'normal', false, false, 5, 1, 'Site A')"
     )
-    
+
     # Patch init_db in main so lifespan doesn't reset our DB
     with patch("app.backend.main.init_db"), TestClient(app) as client:
         yield client
-    
+
     # Teardown
     close_db()

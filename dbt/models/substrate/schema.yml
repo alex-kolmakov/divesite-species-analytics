@@ -56,11 +56,22 @@ models:
 
   - name: divesites
     description: >
-      Materialized table of dive site locations sourced from the PADI dive-guide GCS parquet.
-      Clustered by geography for efficient spatial joins downstream.
+      Materialized table of all dive site locations. SSI is the primary source (~10,600 sites);
+      PADI supplements with ~2,700 sites not present in SSI. A PADI site is dropped as a duplicate
+      when an SSI site lies within 500 m with a matching name, or within 25 m regardless of name.
+      Sites within one source are never merged. Clustered by geography for efficient spatial
+      joins downstream.
     columns:
+      - name: site_id
+        description: >
+          Stable site key, '<source>:<source id>' (e.g. 'ssi:1234', 'padi:5678'). Use this, not
+          title, to join or look up sites: titles repeat worldwide.
+        data_tests:
+          - unique
+          - not_null
+
       - name: title
-        description: Human-readable name of the dive site. Not unique — different sites worldwide may share names.
+        description: Human-readable name of the dive site. Not globally unique — sites worldwide may share names.
         data_tests:
           - not_null
 
@@ -68,3 +79,38 @@ models:
         description: Point geometry of the dive site derived from longitude/latitude.
         data_tests:
           - not_null
+
+      - name: latitude
+        description: Latitude in decimal degrees.
+        data_tests:
+          - not_null
+
+      - name: longitude
+        description: Longitude in decimal degrees.
+        data_tests:
+          - not_null
+
+      - name: site_source
+        description: Origin of the site record — 'ssi' or 'padi'.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ssi', 'padi']
+
+      - name: country_iso3
+        description: ISO 3166-1 alpha-3 country code (SSI sites only; null for PADI-only sites).
+
+      - name: avg_max_depth
+        description: Community average maximum depth in metres (SSI only).
+
+      - name: avg_divetime
+        description: Community average dive time in minutes (SSI only).
+
+      - name: avg_visibility
+        description: Community average visibility in metres (SSI only).
+
+      - name: avg_rating
+        description: Community average rating on a 1–5 scale (SSI only).
+
+      - name: logged_dives
+        description: Total dives logged at this site by SSI users. Proxy for site popularity (SSI only).
