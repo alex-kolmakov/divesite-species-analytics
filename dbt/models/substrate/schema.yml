@@ -31,9 +31,33 @@ models:
   - name: obis_occurrences
     description: >
       Staged view over the OBIS (Ocean Biogeographic Information System) GCS parquet file.
-      Uses SAFE_CAST for type safety. In dev mode, applies a deterministic 1% hash-based
-      sample on species (FARM_FINGERPRINT) to avoid full table scans.
+      Dates come from OBIS's validated date_mid, not the free-text eventDate. Excludes absence
+      records and rows OBIS quality control dropped. In dev mode, applies a deterministic 1%
+      hash-based sample on species (FARM_FINGERPRINT) to avoid full table scans.
     columns:
+      - name: obis_id
+        description: OBIS's unique record ID.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: dataset_id
+        description: OBIS dataset UUID.
+        data_tests:
+          - not_null
+
+      - name: occurrence_id
+        description: Publisher's occurrence ID; with dataset_id, identifies copies of the record in GBIF.
+
+      - name: coordinate_uncertainty_m
+        description: Coordinate uncertainty radius in metres (mostly null). Not filtered yet.
+
+      - name: basis_of_record
+        description: Darwin Core basis of record. Not filtered yet.
+
+      - name: flags
+        description: Comma-separated OBIS quality flags; null when none.
+
       - name: species
         description: Scientific name of the observed species.
         data_tests:
@@ -45,7 +69,7 @@ models:
           - not_null
 
       - name: eventdate
-        description: Timestamp of the observation event, cast from source string.
+        description: Midpoint of the observation event, from OBIS's validated date_mid.
         data_tests:
           - not_null
 

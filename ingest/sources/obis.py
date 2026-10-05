@@ -17,16 +17,30 @@ logger = logging.getLogger(__name__)
 S3_BUCKET = "obis-open-data"
 S3_PREFIX = "occurrence/"
 
+# Rows are kept whatever their quality: absence, dropped, flags, basisOfRecord and
+# coordinateUncertaintyInMeters are carried through so dbt applies (and counts) every filter.
 OBIS_COLUMNS = [
+    # Identity: _id is OBIS's own unique key; occurrenceID + dataset_id match GBIF copies
+    "_id AS obis_id",
+    "dataset_id",
+    "interpreted.occurrenceID AS occurrenceID",
     "interpreted.species AS species",
     "interpreted.individualCount AS individualCount",
-    "interpreted.eventDate AS eventDate",
-    "interpreted.eventTime AS eventTime",
-    "interpreted.date_year AS year",
-    'interpreted."month" AS month',
-    'interpreted."day" AS day',
     "interpreted.decimalLongitude AS decimalLongitude",
     "interpreted.decimalLatitude AS decimalLatitude",
+    "interpreted.coordinateUncertaintyInMeters AS coordinateUncertaintyInMeters",
+    # Dates: eventDate is free text OBIS failed to parse in places ("0000-00-00", "3798-06-28").
+    # date_start/date_mid/date_end (epoch ms) and date_year are OBIS's validated values, null when invalid.
+    "interpreted.eventDate AS eventDate",
+    "interpreted.date_start AS date_start",
+    "interpreted.date_mid AS date_mid",
+    "interpreted.date_end AS date_end",
+    "interpreted.date_year AS date_year",
+    # Quality: absence = recorded as not present; dropped = rejected by OBIS QC (on land, not marine, ...)
+    "interpreted.basisOfRecord AS basisOfRecord",
+    "absence",
+    "dropped",
+    "array_to_string(flags, ',') AS flags",
 ]
 
 OBIS_WHERE = (

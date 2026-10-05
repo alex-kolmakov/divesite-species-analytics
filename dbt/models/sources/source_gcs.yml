@@ -12,23 +12,50 @@ sources:
       - name: obis_table
         description: >
           Ocean Biogeographic Information System occurrence records. Refreshed from
-          s3://obis-open-data via the ingestion pipeline. Contains species, coordinates,
-          dates, and individual counts in the interpreted struct.
+          s3://obis-open-data via the ingestion pipeline, flattened from the interpreted struct.
+          Every record with a species and coordinates is kept, including absences and rows OBIS
+          QC dropped; filtering happens in obis_occurrences so each rule can be counted.
         external:
           location: 'gs://marine_data_412615/obis.parquet'
           options:
             format: parquet
         columns:
+          - name: obis_id
+            description: OBIS's own unique record ID (`_id`).
+          - name: dataset_id
+            description: OBIS dataset UUID.
+          - name: occurrenceID
+            description: Publisher's occurrence ID. With the dataset, matches copies of the record in GBIF.
           - name: species
             description: Scientific name of the observed species.
           - name: decimalLatitude
             description: Latitude of the observation in decimal degrees.
           - name: decimalLongitude
             description: Longitude of the observation in decimal degrees.
+          - name: coordinateUncertaintyInMeters
+            description: Coordinate uncertainty radius in metres (mostly null).
           - name: eventDate
-            description: Date/time of the observation as a string (cast downstream).
+            description: >
+              Free-text date as published. Not used: contains unparseable or impossible values
+              ('0000-00-00', '3798-06-28') that OBIS itself rejected.
+          - name: date_start
+            description: OBIS-validated start of the event, epoch milliseconds. Null when the date is invalid.
+          - name: date_mid
+            description: OBIS-validated midpoint of the event, epoch milliseconds. Null when the date is invalid.
+          - name: date_end
+            description: OBIS-validated end of the event, epoch milliseconds. Null when the date is invalid.
+          - name: date_year
+            description: OBIS-validated year. Null when the date is invalid.
           - name: individualCount
-            description: Number of individuals observed (may be null).
+            description: Number of individuals observed, as a string (may be null).
+          - name: basisOfRecord
+            description: Darwin Core basis of record (HumanObservation, PreservedSpecimen, MaterialSample, ...).
+          - name: absence
+            description: True when the record says the species was looked for and not found.
+          - name: dropped
+            description: True when OBIS quality control rejected the record (on land, not marine, no coordinates).
+          - name: flags
+            description: Comma-separated OBIS quality flags (NO_DEPTH, ON_LAND, DEPTH_EXCEEDS_BATH, ...); null when none.
 
       - name: worms_table
         description: >
