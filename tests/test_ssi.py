@@ -17,7 +17,9 @@ import json
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 from ingest.sources.ssi import (
+    MAX_TILE_ATTEMPTS,
     SATURATION_LIMIT,
     _extract_sites,
     _fetch_all_tiles,
@@ -174,16 +176,77 @@ def test_subdivision_triggered_on_saturation():
     assert len(sites) == 4 * 3 + 3
 
 
-def test_failed_tile_is_skipped_not_raised():
-    """A network failure on one tile should not crash the whole run."""
+def test_failed_tile_is_retried():
+    """A tile answered with null (as the SSI API does under load) is retried, not dropped."""
+    calls = [0]
 
     async def mock_fetch(session, sem, phpsessid, auth_token, s, w, n, e):
-        raise ConnectionError("timeout")
+        calls[0] += 1
+        return None if calls[0] == 1 else _make_tile_response(total=4, n_sites=4, id_prefix="ok")
 
-    with patch("ingest.sources.ssi._fetch_tile", side_effect=mock_fetch):
+    with (
+        patch("ingest.sources.ssi._fetch_tile", side_effect=mock_fetch),
+        patch("ingest.sources.ssi.RETRY_DELAY_SECONDS", 0),
+    ):
         sites = asyncio.run(_fetch_all_tiles("sess", "tok", [(-30.0, -30.0, 0.0, 0.0)]))
 
-    assert sites == []
+    assert calls[0] == 2
+    assert len(sites) == 4
+
+
+def test_persistently_failing_tile_is_subdivided():
+    """After MAX_TILE_ATTEMPTS failures the 30° tile is split; its 15° sub-tiles succeed."""
+    requested: list[tuple] = []
+
+    async def mock_fetch(session, sem, phpsessid, auth_token, s, w, n, e):
+        requested.append((s, w, n, e))
+        if n - s >= 30:
+            raise ConnectionError("timeout")
+        return _make_tile_response(total=2, n_sites=2, id_prefix=f"{s}_{w}")
+
+    with (
+        patch("ingest.sources.ssi._fetch_tile", side_effect=mock_fetch),
+        patch("ingest.sources.ssi.RETRY_DELAY_SECONDS", 0),
+    ):
+        sites = asyncio.run(_fetch_all_tiles("sess", "tok", [(-30.0, -30.0, 0.0, 0.0)]))
+
+    assert requested.count((-30.0, -30.0, 0.0, 0.0)) == MAX_TILE_ATTEMPTS
+    assert len(sites) == 4 * 2
+
+
+def test_one_bad_record_is_isolated_and_skipped():
+    """A tile holding one unencodable record fails at every size; splitting recovers its neighbours."""
+
+    async def mock_fetch(session, sem, phpsessid, auth_token, s, w, n, e):
+        if s <= -29 < n and w <= -29 < e:  # every tile containing the point (-29, -29) fails
+            return None
+        return _make_tile_response(total=1, n_sites=1, id_prefix=f"{s}_{w}")
+
+    with (
+        patch("ingest.sources.ssi._fetch_tile", side_effect=mock_fetch),
+        patch("ingest.sources.ssi.RETRY_DELAY_SECONDS", 0),
+        patch("ingest.sources.ssi.MIN_TILE_SIZE", 5),
+    ):
+        sites = asyncio.run(_fetch_all_tiles("sess", "tok", [(-30.0, -30.0, 0.0, 0.0)]))
+
+    # 30° fails → 4 × 15°: 3 succeed, 1 fails → 4 × 7.5°: 3 succeed, 1 fails and is too small to split
+    assert len(sites) == 3 + 3
+
+
+def test_too_many_unreadable_tiles_raise():
+    """If the API fails everywhere, abort instead of uploading a partial scrape."""
+
+    async def mock_fetch(session, sem, phpsessid, auth_token, s, w, n, e):
+        return None
+
+    with (
+        patch("ingest.sources.ssi._fetch_tile", side_effect=mock_fetch),
+        patch("ingest.sources.ssi.RETRY_DELAY_SECONDS", 0),
+        patch("ingest.sources.ssi.MIN_TILE_SIZE", 10),
+        patch("ingest.sources.ssi.MAX_LOST_TILES", 3),
+        pytest.raises(RuntimeError, match="failed after retries"),
+    ):
+        asyncio.run(_fetch_all_tiles("sess", "tok", [(-30.0, -30.0, 0.0, 0.0)]))
 
 
 def test_multiple_rounds_of_subdivision():

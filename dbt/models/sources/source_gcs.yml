@@ -87,10 +87,11 @@ sources:
 
       - name: redlist_table
         description: >
-          IUCN Red List of Threatened Species extract. Used to flag species as endangered
-          in the species reference table.
+          IUCN Red List of Threatened Species (GBIF-hosted DwC-A, iucn-latest), one row per taxon
+          with its global category (threatStatus, lower-cased) joined from the distribution
+          extension, and canonicalName (genus + epithet; scientificName includes the author).
           Schema is auto-detected (no column list: dbt_external_tables would restrict the table to
-          the listed columns and needs a data_type for each). Models use: scientificName.
+          the listed columns and needs a data_type for each). Models use: canonicalName, threatStatus.
         external:
           location: 'gs://marine_data_412615/redlist.parquet'
           options:

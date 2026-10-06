@@ -23,6 +23,15 @@ USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 TILE_SIZE = 30  # degrees — 72 tiles cover the globe; subdivide saturated tiles
 MAX_CONCURRENT = 4  # cap parallel requests to avoid rate limiting
 SATURATION_LIMIT = 1000  # SSI caps tile results at this count
+# The API answers some tiles with HTTP 200 and an empty body: any tile containing a record the
+# server can't encode (seen 2026-10-06 in the Maldives, Phuket, Crete, Cyprus). A failed tile is
+# retried, then split until the bad record sits alone in a tile under MIN_TILE_SIZE (~1 km),
+# which is skipped and logged. More than MAX_LOST_TILES such tiles aborts the run, so a broken
+# scrape is never uploaded over a complete one.
+MAX_TILE_ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 2.0
+MIN_TILE_SIZE = 0.01  # degrees
+MAX_LOST_TILES = 10
 
 
 def _acquire_credentials() -> tuple[str, str]:
@@ -101,15 +110,33 @@ async def _fetch_tile(
             return await resp.json(content_type=None)
 
 
+def _split_tile(tile: tuple[float, float, float, float]) -> list[tuple[float, float, float, float]]:
+    s, w, n, e = tile
+    mid_lat = (s + n) / 2
+    mid_lng = (w + e) / 2
+    return [
+        (s, w, mid_lat, mid_lng),
+        (s, mid_lng, mid_lat, e),
+        (mid_lat, w, n, mid_lng),
+        (mid_lat, mid_lng, n, e),
+    ]
+
+
 async def _fetch_all_tiles(
     phpsessid: str,
     auth_token: str,
     initial_tiles: list[tuple[float, float, float, float]],
 ) -> list[dict[str, Any]]:
-    """Fetch all tiles iteratively, subdividing any that hit the 1000-result cap."""
+    """Fetch all tiles iteratively, subdividing any that hit the 1000-result cap.
+
+    Failed tiles are retried up to MAX_TILE_ATTEMPTS times, then subdivided. Tiles still failing
+    below MIN_TILE_SIZE are skipped and logged; raises if more than MAX_LOST_TILES are lost.
+    """
     sem = asyncio.Semaphore(MAX_CONCURRENT)
     all_sites: list[dict[str, Any]] = []
     pending = list(initial_tiles)
+    attempts: dict[tuple[float, float, float, float], int] = {}
+    failed: list[tuple[float, float, float, float]] = []
     round_num = 1
 
     async with aiohttp.ClientSession() as session:
@@ -119,10 +146,21 @@ async def _fetch_all_tiles(
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             next_pending: list[tuple[float, float, float, float]] = []
+            any_failed = False
             for tile, result in zip(pending, results, strict=True):
                 s, w, n, e = tile
                 if not isinstance(result, dict):
-                    logger.warning("Tile (%.0f,%.0f)→(%.0f,%.0f) error: %s", s, w, n, e, result)
+                    any_failed = True
+                    attempts[tile] = attempts.get(tile, 0) + 1
+                    if attempts[tile] < MAX_TILE_ATTEMPTS:
+                        logger.warning("Tile (%g,%g)→(%g,%g) failed (%s) — retrying", s, w, n, e, result)
+                        next_pending.append(tile)
+                    elif (n - s) / 2 >= MIN_TILE_SIZE:
+                        logger.warning("Tile (%g,%g)→(%g,%g) failed %d times — subdividing", s, w, n, e, attempts[tile])
+                        next_pending.extend(_split_tile(tile))
+                    else:
+                        logger.warning("Tile (%g,%g)→(%g,%g) still failing at minimum size — skipped", s, w, n, e)
+                        failed.append(tile)
                     continue
 
                 total = result.get("stats", {}).get("total", 0)
@@ -130,16 +168,7 @@ async def _fetch_all_tiles(
 
                 if total >= SATURATION_LIMIT:
                     # Tile is capped — split into 4 sub-tiles and retry
-                    mid_lat = (s + n) / 2
-                    mid_lng = (w + e) / 2
-                    next_pending.extend(
-                        [
-                            (s, w, mid_lat, mid_lng),
-                            (s, mid_lng, mid_lat, e),
-                            (mid_lat, w, n, mid_lng),
-                            (mid_lat, mid_lng, n, e),
-                        ]
-                    )
+                    next_pending.extend(_split_tile(tile))
                     logger.info(
                         "Tile (%.0f,%.0f)→(%.0f,%.0f) saturated (%d results) — subdividing into 4",
                         s,
@@ -154,7 +183,13 @@ async def _fetch_all_tiles(
 
             pending = next_pending
             round_num += 1
+            if any_failed and pending:
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
 
+    if len(failed) > MAX_LOST_TILES:
+        raise RuntimeError(f"SSI: {len(failed)} tile(s) failed after retries and subdivision: {failed}")
+    if failed:
+        logger.warning("SSI: skipped %d unreadable tile(s) under %g°: %s", len(failed), MIN_TILE_SIZE, failed)
     return all_sites
 
 

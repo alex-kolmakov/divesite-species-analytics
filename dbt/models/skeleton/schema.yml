@@ -62,8 +62,11 @@ models:
           - not_null
           - unique
 
+      - name: iucn_category
+        description: IUCN Red List global category, lower-cased (least concern ... critically endangered); null when not assessed.
+
       - name: is_endangered
-        description: TRUE if the species appears on the IUCN Red List.
+        description: TRUE if the IUCN Red List category is vulnerable, endangered or critically endangered.
         data_tests:
           - not_null
           - accepted_values:
