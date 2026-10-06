@@ -153,3 +153,16 @@ models:
 
       - name: logged_dives
         description: Total dives logged at this site by SSI users. Proxy for site popularity (SSI only).
+
+  - name: wrims_regions
+    description: Marine Regions areas used by WRiMS, as GEOGRAPHY (boundaries simplified to ~1 km at ingest).
+    columns:
+      - name: mrgid
+        description: Marine Regions ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: geography
+        description: Area boundary.
+        data_tests:
+          - not_null

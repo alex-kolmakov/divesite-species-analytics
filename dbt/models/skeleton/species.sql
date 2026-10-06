@@ -7,14 +7,16 @@ WITH unique_species AS (
 
 -- Red List names carry the author, so the match is on canonicalName (genus + epithet). Only the
 -- threatened categories (VU, EN, CR) count as endangered; the list also holds Least Concern.
+-- is_invasive means "invasive somewhere" (WRiMS): whether it is invasive at a given dive site is
+-- in divesite_invasive_species, since the same species can be native elsewhere.
 SELECT
     spec.species,
     redlist.threatStatus AS iucn_category,
     COALESCE(redlist.is_threatened, FALSE) AS is_endangered,
-    IF(invasive.scientificName IS NOT NULL, TRUE, FALSE) AS is_invasive,
+    invasive.species IS NOT NULL AS is_invasive,
     CASE
         WHEN redlist.is_threatened THEN 'endangered'
-        WHEN invasive.scientificName IS NOT NULL THEN 'invasive'
+        WHEN invasive.species IS NOT NULL THEN 'invasive'
         ELSE 'normal'
     END AS species_type
 FROM unique_species AS spec
@@ -29,6 +31,7 @@ LEFT JOIN (
 ) AS redlist
     ON spec.species = redlist.canonicalName
 LEFT JOIN (
-    SELECT DISTINCT scientificName FROM {{ source('marine_data', 'invasive_table') }}
+    SELECT DISTINCT species FROM {{ source('marine_data', 'wrims_table') }}
+    WHERE invasiveness = 'Invasive'
 ) AS invasive
-    ON spec.species = invasive.scientificName
+    ON spec.species = invasive.species

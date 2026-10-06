@@ -308,6 +308,31 @@ models:
         data_tests:
           - not_null
 
+  - name: divesite_invasive_species
+    description: >
+      Species invasive at each dive site: WRiMS lists the species as Invasive or Of concern in a
+      Marine Regions area within 5 km of the site. Invasiveness is per place (lionfish is invasive
+      in the Caribbean, native in the Red Sea), so use this, not species.is_invasive, per site.
+    columns:
+      - name: site_id
+        description: Dive site key (divesites.site_id).
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('divesites')
+              field: site_id
+      - name: species
+        description: Scientific name (WoRMS accepted name from WRiMS).
+        data_tests:
+          - not_null
+      - name: invasiveness
+        description: "'invasive' or 'of concern' (invasive wins when nearby areas disagree)."
+        data_tests:
+          - accepted_values:
+              values: ['invasive', 'of concern']
+      - name: mrgids
+        description: Marine Regions IDs of the areas that put the species on this site's list.
+
 exposures:
   - name: divesite_species_dashboard
     label: Divesite Species Dashboard

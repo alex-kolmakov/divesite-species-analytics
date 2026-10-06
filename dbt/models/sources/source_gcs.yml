@@ -108,6 +108,27 @@ sources:
           options:
             format: parquet
 
+      - name: wrims_table
+        description: >
+          WRiMS (World Register of Introduced Marine Species): one row per species x Marine Regions
+          area where WoRMS records the species as alien, with its invasiveness there (Invasive,
+          Of concern, Uncertain, Not specified). Built from GBIF's WRiMS checklist + WoRMS REST.
+          Schema is auto-detected (aphia_id, species, mrgid, locality, invasiveness,
+          record_status, quality_status).
+        external:
+          location: 'gs://marine_data_412615/wrims.parquet'
+          options:
+            format: parquet
+
+      - name: wrims_regions_table
+        description: >
+          Boundaries of the Marine Regions areas used by wrims_table, as WKT simplified to ~1 km
+          (mrgid, wkt). Schema is auto-detected.
+        external:
+          location: 'gs://marine_data_412615/wrims_regions.parquet'
+          options:
+            format: parquet
+
       - name: divesites_padi_table
         description: >
           PADI dive site locations scraped from the dive-guide API. ~3,400 sites worldwide.

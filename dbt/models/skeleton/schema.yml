@@ -52,7 +52,7 @@ models:
   - name: species
     description: >
       Deduplicated species reference table built from occurrences. Flags each species
-      as endangered (IUCN Red List), invasive (GISD), or normal via LEFT JOINs. Enrichment
+      as endangered (IUCN Red List: VU/EN/CR), invasive somewhere (WRiMS), or normal via LEFT JOINs. Enrichment
       data (common_name, description, image_url) lives in the separate species_enrichment
       table managed by the enrichment pipeline.
     columns:
@@ -74,7 +74,9 @@ models:
               quote: false
 
       - name: is_invasive
-        description: TRUE if the species appears in the Global Invasive Species Database.
+        description: >
+          TRUE if WRiMS lists the species as Invasive in at least one sea area. Whether it is
+          invasive at a particular dive site is in divesite_invasive_species.
         data_tests:
           - not_null
           - accepted_values:

@@ -33,9 +33,9 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 | [OBIS](https://obis.org) | Ocean observations | ~203M | ~6.3GB | boto3 parallel (16 workers) from S3 |
 | [GBIF](https://gbif.org) | Biodiversity occurrences | Massive (sampled) | — | BigQuery public dataset |
 | [WoRMS](https://marinespecies.org) | Marine taxonomy | ~593K | ~90MB | DwCA zip (authenticated) |
-| [IUCN Red List](https://iucnredlist.org) | Endangered species | ~255K | ~20MB | DwCA zip |
+| [IUCN Red List](https://iucnredlist.org) | Threat category per species | ~311K | ~20MB | DwCA zip (iucn-latest) |
 | [PADI](https://padi.com) | Dive site locations | ~3,400 sites | <1MB | Paginated REST API |
-| [GISD](http://griis.org) | Invasive species | ~830 | <1MB | DwCA zip |
+| [WRiMS](https://www.marinespecies.org/introduced) | Introduced / invasive marine species, per sea area | ~3.2K species | small | GBIF + WoRMS REST + Marine Regions |
 | Enrichment APIs | Names, descriptions, images | On-demand | — | GBIF + Wikipedia + Wikidata |
 
 ## Engineering Highlights

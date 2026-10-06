@@ -8,3 +8,4 @@ requests
 python-dateutil
 tqdm
 google-cloud-storage
+shapely>=2.1.2

@@ -37,7 +37,7 @@ APP_SERVICE  := marine-species-explorer
 export GOOGLE_APPLICATION_CREDENTIALS ?= $(CURDIR)/$(SERVICE_KEY)
 
 # Sources to ingest — each runs as a parallel Cloud Run execution
-INGEST_SOURCES := iucn gisd worms divesites ssi obis
+INGEST_SOURCES := iucn gisd worms divesites ssi wrims obis
 
 # BigQuery export settings
 BQ_DATASET   ?= marine_data

@@ -36,7 +36,7 @@ Validated, deduplicated, and unified datasets ready for analytics.
 | Model | Description |
 |-------|-------------|
 | `occurrences` | Presences from GBIF + OBIS (~493M), keyed by `occurrence_key`. Drops absences, OBIS QC rejects, fossil/living specimens, invalid or pre-`MIN_YEAR` dates, 0/0 coordinates, records less precise than `PROXIMITY_METERS`, and GBIF copies of OBIS records. Partitioned by `event_date` (month), clustered by `geography`. `analyses/occurrence_filter_counts.sql` counts each rule. |
-| `species` | Deduplicated species reference table with `is_endangered` (IUCN) and `is_invasive` (GISD) flags. |
+| `species` | Deduplicated species reference table with `iucn_category`, `is_endangered` (IUCN VU/EN/CR) and `is_invasive` (WRiMS: invasive somewhere) flags. |
 
 ### Coral (Analytics)
 
@@ -49,6 +49,7 @@ Denormalized tables optimized for the application's two primary queries.
 | `divesite_species_frequency` | Species ranked by sighting count at each dive site. Intermediate table feeding the UI models. |
 | `species_divesite_summary` | Denormalized for "Where can I find species X?" — clustered by `species` for fast single-species lookups. LEFT JOINs `species_enrichment` for common names and images. |
 | `divesite_species_detail` | Denormalized for "What lives near dive site Y?" — clustered by `dive_site` for fast single-site lookups. LEFT JOINs `species_enrichment` for descriptions and images. |
+| `divesite_invasive_species` | Species invasive at each dive site: WRiMS lists it as Invasive / Of concern in a sea area within 5 km. Invasiveness is per place. |
 | `divesite_summary` | One row per dive site with species counts and coordinates (~13,300 rows). Loaded entirely on app startup. |
 
 ### Core Column Schema
@@ -62,7 +63,7 @@ Columns present across the occurrence-based models:
 | `event_date` | TIMESTAMP | Observation timestamp (partition key) |
 | `geography` | GEOGRAPHY | BigQuery POINT geometry |
 | `source` | STRING | Origin dataset (`OBIS` or `GBIF`) |
-| `is_invasive` | BOOLEAN | Flagged by GISD |
+| `is_invasive` | BOOLEAN | WRiMS lists it as Invasive somewhere; per site see `divesite_invasive_species` |
 | `is_endangered` | BOOLEAN | Flagged by IUCN Red List |
 | `species_type` | STRING | Derived label: `endangered` > `invasive` > `normal` |
 
@@ -87,8 +88,9 @@ Each data source has a dedicated handler in `ingest/`. All sources are run as **
 
 | Source | Records | Size | Time | Method |
 |--------|---------|------|------|--------|
-| IUCN Red List | ~255K | ~20MB | ~15s | DwCA zip download + parse |
-| GISD | ~830 | <1MB | <1s | DwCA zip download + parse |
+| IUCN Red List | ~311K taxa | ~20MB | ~15s | DwCA zip (iucn-latest) + distribution extension for the category |
+| WRiMS | ~3.2K species × sea areas | small | minutes | GBIF checklist API + WoRMS REST distributions + Marine Regions boundaries |
+| GISD (unused) | ~830 | <1MB | <1s | DwCA zip, 2011 snapshot; replaced by WRiMS |
 | WoRMS | ~593K | ~90MB | ~60s | DwCA zip (authenticated download) |
 | Divesites (PADI) | ~3,400 | <1MB | ~90s | Paginated REST API scrape |
 | SSI | ~10,600 | <1MB | ~3min | Session auth + async tile subdivision |
@@ -200,7 +202,7 @@ The full pipeline runs in sequence: **Ingest → dbt → Enrich**.
 Ingest (parallel)          dbt                    Enrich
 ┌──────────────┐      ┌──────────┐          ┌──────────────┐
 │ IUCN    ─┐   │      │          │          │ GBIF API     │
-│ GISD    ─┤   │      │ substrate│          │ Wikipedia    │
+│ WRiMS   ─┤   │      │ substrate│          │ Wikipedia    │
 │ WoRMS   ─┼──▶│──▶   │ skeleton │──▶       │ Wikidata     │
 │ PADI    ─┤   │      │ coral    │          │              │
 │ SSI     ─┤   │      │          │          │ → BigQuery   │
