@@ -3,37 +3,48 @@ version: 2
 models:
   - name: gbif_occurrences
     description: >
-      Staged view over the GBIF (Global Biodiversity Information Facility) BigQuery public dataset.
-      Selects species, individual count, event date, and geography. Filters out rows missing
-      coordinates, dates, or species. In dev mode, uses TABLESAMPLE SYSTEM (0.01%) to minimise
-      bytes scanned.
+      Staged copy of the GBIF BigQuery public dataset, WoRMS species only. Built by the one query
+      that scans GBIF (~306 GiB, the table has no partitioning); everything downstream reads this
+      table. No quality filter is applied here: absences, basis of record, uncertainty and dates
+      are filtered in occurrences. In dev mode, uses TABLESAMPLE SYSTEM (0.01%).
     columns:
+      - name: gbif_id
+        description: GBIF's record ID (gbifid).
+        data_tests:
+          - unique
+          - not_null
+
       - name: species
-        description: Scientific name of the observed species.
+        description: Scientific name of the observed species (present in WoRMS).
         data_tests:
           - not_null
 
       - name: individualcount
-        description: Number of individuals observed (defaults to 1 when null in source).
-        data_tests:
-          - not_null
+        description: Number of individuals as published; null when not recorded.
 
       - name: eventdate
-        description: Timestamp of the observation event.
-        data_tests:
-          - not_null
+        description: Timestamp of the observation event; may be null.
 
-      - name: geography
-        description: Point geometry derived from decimal longitude/latitude via ST_GEOGPOINT.
-        data_tests:
-          - not_null
+      - name: decimallongitude
+        description: Longitude in decimal degrees; may be null.
+
+      - name: decimallatitude
+        description: Latitude in decimal degrees; may be null.
+
+      - name: coordinate_uncertainty_m
+        description: Coordinate uncertainty radius in metres; mostly null.
+
+      - name: occurrence_status
+        description: PRESENT or ABSENT.
+
+      - name: basis_of_record
+        description: Darwin Core basis of record (HUMAN_OBSERVATION, PRESERVED_SPECIMEN, FOSSIL_SPECIMEN, ...).
 
   - name: obis_occurrences
     description: >
-      Staged view over the OBIS (Ocean Biogeographic Information System) GCS parquet file.
-      Dates come from OBIS's validated date_mid, not the free-text eventDate. Excludes absence
-      records and rows OBIS quality control dropped. In dev mode, applies a deterministic 1%
-      hash-based sample on species (FARM_FINGERPRINT) to avoid full table scans.
+      Staged copy of the OBIS GCS parquet, WoRMS species only (~50 GiB read, once per re-ingest).
+      No quality filter is applied here: absence, OBIS QC drops and invalid dates are filtered in
+      occurrences. In dev mode, applies a deterministic 1% hash-based sample on species.
     columns:
       - name: obis_id
         description: OBIS's unique record ID.
@@ -46,37 +57,41 @@ models:
         data_tests:
           - not_null
 
-      - name: occurrence_id
-        description: Publisher's occurrence ID; with dataset_id, identifies copies of the record in GBIF.
-
-      - name: coordinate_uncertainty_m
-        description: Coordinate uncertainty radius in metres (mostly null). Not filtered yet.
-
-      - name: basis_of_record
-        description: Darwin Core basis of record. Not filtered yet.
-
-      - name: flags
-        description: Comma-separated OBIS quality flags; null when none.
-
       - name: species
-        description: Scientific name of the observed species.
+        description: Scientific name of the observed species (present in WoRMS).
         data_tests:
           - not_null
 
       - name: individualcount
-        description: Number of individuals observed (defaults to 1 when null in source).
+        description: Number of individuals as published (string); null when not recorded.
+
+      - name: date_mid
+        description: OBIS-validated event midpoint, epoch milliseconds; null when OBIS could not parse the date.
+
+      - name: decimallongitude
+        description: Longitude in decimal degrees.
         data_tests:
           - not_null
 
-      - name: eventdate
-        description: Midpoint of the observation event, from OBIS's validated date_mid.
+      - name: decimallatitude
+        description: Latitude in decimal degrees.
         data_tests:
           - not_null
 
-      - name: geography
-        description: Point geometry derived from decimal longitude/latitude via ST_GEOGPOINT.
-        data_tests:
-          - not_null
+      - name: coordinate_uncertainty_m
+        description: Coordinate uncertainty radius in metres; mostly null.
+
+      - name: basis_of_record
+        description: Darwin Core basis of record (HumanObservation, PreservedSpecimen, ...).
+
+      - name: absence
+        description: True when the species was looked for and not found.
+
+      - name: dropped
+        description: True when OBIS quality control rejected the record (on land, not marine, ...).
+
+      - name: flags
+        description: Comma-separated OBIS quality flags; null when none.
 
   - name: divesites
     description: >

@@ -30,9 +30,7 @@ models:
               field: scientificName
 
       - name: individual_count
-        description: Number of individuals observed.
-        data_tests:
-          - not_null
+        description: Number of individuals observed; null when not recorded.
 
       - name: distance_to_dive_site
         description: Distance in metres between the occurrence and the matched dive site.

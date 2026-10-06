@@ -3,10 +3,18 @@ version: 2
 models:
   - name: occurrences
     description: >
-      Unified occurrence table merging GBIF and OBIS data. Only species validated against the
-      WoRMS taxonomy are retained (INNER JOIN). Partitioned by event_date (month) and clustered
-      by geography for efficient spatial and temporal queries.
+      Unified occurrence table merging the staged GBIF and OBIS copies (WoRMS species only).
+      Keeps presences only, drops OBIS QC rejects, fossil and living specimens, invalid or
+      pre-MIN_YEAR dates, 0/0 coordinates and records less precise than PROXIMITY_METERS, then
+      drops GBIF copies of OBIS records (same species, day and location). Partitioned by
+      event_date (month) and clustered by geography.
     columns:
+      - name: occurrence_key
+        description: Source-prefixed native record ID ('gbif:<gbifid>' / 'obis:<OBIS _id>').
+        data_tests:
+          - unique
+          - not_null
+
       - name: event_date
         description: Timestamp of the observation, used as the partition key (month granularity).
         data_tests:
@@ -21,9 +29,13 @@ models:
               field: scientificName
 
       - name: individual_count
-        description: Number of individuals observed (defaults to 1 when null in source).
-        data_tests:
-          - not_null
+        description: Number of individuals observed; null when not recorded (never coerced to 1). Always > 0 when set.
+
+      - name: coordinate_uncertainty_m
+        description: Coordinate uncertainty radius in metres; null when not recorded.
+
+      - name: basis_of_record
+        description: Darwin Core basis of record as published (GBIF and OBIS spell it differently).
 
       - name: geography
         description: Point geometry of the observation, used as the clustering key.
@@ -37,41 +49,9 @@ models:
           - accepted_values:
               values: ['GBIF', 'OBIS']
 
-  - name: clustered_occurrences
-    description: >
-      Re-clustered copy of occurrences with species as the clustering key. Optimises
-      species-level lookups used by the search app and downstream aggregations.
-    columns:
-      - name: event_date
-        description: Timestamp of the observation.
-        data_tests:
-          - not_null
-
-      - name: species
-        description: WoRMS-validated scientific name, used as the clustering key.
-        data_tests:
-          - not_null
-
-      - name: individual_count
-        description: Number of individuals observed.
-        data_tests:
-          - not_null
-
-      - name: geography
-        description: Point geometry of the observation.
-        data_tests:
-          - not_null
-
-      - name: source
-        description: Data provenance tag (GBIF or OBIS).
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ['GBIF', 'OBIS']
-
   - name: species
     description: >
-      Deduplicated species reference table built from clustered_occurrences. Flags each species
+      Deduplicated species reference table built from occurrences. Flags each species
       as endangered (IUCN Red List), invasive (GISD), or normal via LEFT JOINs. Enrichment
       data (common_name, description, image_url) lives in the separate species_enrichment
       table managed by the enrichment pipeline.

@@ -30,7 +30,7 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 
 | Source | Description | Records | Size | Ingestion |
 |--------|-------------|---------|------|-----------|
-| [OBIS](https://obis.org) | Ocean observations | ~162M | ~686MB | boto3 parallel (16 workers) from S3 |
+| [OBIS](https://obis.org) | Ocean observations | ~203M | ~6.3GB | boto3 parallel (16 workers) from S3 |
 | [GBIF](https://gbif.org) | Biodiversity occurrences | Massive (sampled) | — | BigQuery public dataset |
 | [WoRMS](https://marinespecies.org) | Marine taxonomy | ~593K | ~90MB | DwCA zip (authenticated) |
 | [IUCN Red List](https://iucnredlist.org) | Endangered species | ~255K | ~20MB | DwCA zip |

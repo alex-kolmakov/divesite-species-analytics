@@ -2,7 +2,7 @@
 
 WITH unique_species AS (
     SELECT DISTINCT species
-    FROM {{ ref('clustered_occurrences') }}
+    FROM {{ ref('occurrences') }}
 )
 
 SELECT

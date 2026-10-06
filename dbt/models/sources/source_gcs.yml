@@ -21,77 +21,91 @@ sources:
             format: parquet
         columns:
           - name: obis_id
+            data_type: STRING
             description: OBIS's own unique record ID (`_id`).
           - name: dataset_id
+            data_type: STRING
             description: OBIS dataset UUID.
           - name: occurrenceID
+            data_type: STRING
             description: Publisher's occurrence ID. With the dataset, matches copies of the record in GBIF.
           - name: species
+            data_type: STRING
             description: Scientific name of the observed species.
           - name: decimalLatitude
+            data_type: FLOAT64
             description: Latitude of the observation in decimal degrees.
           - name: decimalLongitude
+            data_type: FLOAT64
             description: Longitude of the observation in decimal degrees.
           - name: coordinateUncertaintyInMeters
+            data_type: FLOAT64
             description: Coordinate uncertainty radius in metres (mostly null).
           - name: eventDate
+            data_type: STRING
             description: >
               Free-text date as published. Not used: contains unparseable or impossible values
               ('0000-00-00', '3798-06-28') that OBIS itself rejected.
           - name: date_start
+            data_type: INT64
             description: OBIS-validated start of the event, epoch milliseconds. Null when the date is invalid.
           - name: date_mid
+            data_type: INT64
             description: OBIS-validated midpoint of the event, epoch milliseconds. Null when the date is invalid.
           - name: date_end
+            data_type: INT64
             description: OBIS-validated end of the event, epoch milliseconds. Null when the date is invalid.
           - name: date_year
+            data_type: INT64
             description: OBIS-validated year. Null when the date is invalid.
           - name: individualCount
+            data_type: STRING
             description: Number of individuals observed, as a string (may be null).
           - name: basisOfRecord
+            data_type: STRING
             description: Darwin Core basis of record (HumanObservation, PreservedSpecimen, MaterialSample, ...).
           - name: absence
+            data_type: BOOL
             description: True when the record says the species was looked for and not found.
           - name: dropped
+            data_type: BOOL
             description: True when OBIS quality control rejected the record (on land, not marine, no coordinates).
           - name: flags
+            data_type: STRING
             description: Comma-separated OBIS quality flags (NO_DEPTH, ON_LAND, DEPTH_EXCEEDS_BATH, ...); null when none.
 
       - name: worms_table
         description: >
           World Register of Marine Species taxonomy extract. Used as the authoritative
           species validation reference. Joined on scientificName to filter occurrences.
+          Schema is auto-detected (no column list: dbt_external_tables would restrict the table to
+          the listed columns and needs a data_type for each). Models use: scientificName.
         external:
           location: 'gs://marine_data_412615/worms.parquet'
           options:
             format: parquet
-        columns:
-          - name: scientificName
-            description: Accepted scientific name from WoRMS taxonomy.
 
       - name: redlist_table
         description: >
           IUCN Red List of Threatened Species extract. Used to flag species as endangered
           in the species reference table.
+          Schema is auto-detected (no column list: dbt_external_tables would restrict the table to
+          the listed columns and needs a data_type for each). Models use: scientificName.
         external:
           location: 'gs://marine_data_412615/redlist.parquet'
           options:
             format: parquet
-        columns:
-          - name: scientificName
-            description: Scientific name of the species on the IUCN Red List.
 
       - name: invasive_table
         description: >
           Global Invasive Species Database (GISD) extract. Used to flag species as invasive
           in the species reference table.
+          Schema is auto-detected (no column list: dbt_external_tables would restrict the table to
+          the listed columns and needs a data_type for each). Models use: scientificName.
         external:
           location: 'gs://marine_data_412615/invasive.parquet'
           options:
             format: parquet
-        columns:
-          - name: scientificName
-            description: Scientific name of the invasive species.
 
       - name: divesites_padi_table
         description: >

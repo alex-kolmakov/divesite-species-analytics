@@ -1,5 +1,5 @@
--- Occurrences should never have zero or negative individual counts.
--- The IFNULL(..., 1) default in substrate should guarantee this.
+-- Recorded counts must be positive: a count of 0 is an absence and is filtered out in
+-- occurrences. Null means "not recorded" and is allowed.
 
 SELECT *
 FROM {{ ref('occurrences') }}

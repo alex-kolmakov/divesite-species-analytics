@@ -21,13 +21,13 @@ The dbt project uses a **medallion architecture** with marine biology-themed lay
 
 ### Substrate (Raw)
 
-External GCS parquet files loaded as BigQuery external tables. No transformations — raw data as ingested.
+External GCS parquet files are BigQuery external tables. The two occurrence sources are staged once into native tables (WoRMS species only, no other filter) so that nothing downstream re-scans GBIF or the OBIS parquet.
 
 | Model | Source | Description |
 |-------|--------|-------------|
 | `divesites` | SSI + PADI | ~13,300 dive sites keyed by `site_id` (SSI ~10,600 primary + PADI ~2,700 not already in SSI: same name within 500 m, or within 25 m, counts as a duplicate) |
-| `gbif_occurrences` | GBIF BigQuery public dataset | Species occurrence records (sampled in dev) |
-| `obis_occurrences` | OBIS S3 bucket | ~162M occurrence records from ocean observations |
+| `gbif_occurrences` | GBIF BigQuery public dataset | Table. ~559M records of WoRMS species with IDs and QC fields. The only model that scans GBIF (~306 GiB: 3.7B rows, no partitioning). Sampled in dev |
+| `obis_occurrences` | OBIS S3 bucket | Table. ~182M records of WoRMS species with IDs, validated dates and QC fields (~29 GiB read of the parquet) |
 
 ### Skeleton (Cleaned)
 
@@ -35,8 +35,7 @@ Validated, deduplicated, and unified datasets ready for analytics.
 
 | Model | Description |
 |-------|-------------|
-| `occurrences` | Union of GBIF + OBIS, filtered to WoRMS-validated species only. Partitioned by `event_date` (month), clustered by `geography`. |
-| `clustered_occurrences` | Re-clustered copy of occurrences with `species` as clustering key for fast species-level lookups. |
+| `occurrences` | Presences from GBIF + OBIS (~493M), keyed by `occurrence_key`. Drops absences, OBIS QC rejects, fossil/living specimens, invalid or pre-`MIN_YEAR` dates, 0/0 coordinates, records less precise than `PROXIMITY_METERS`, and GBIF copies of OBIS records. Partitioned by `event_date` (month), clustered by `geography`. `analyses/occurrence_filter_counts.sql` counts each rule. |
 | `species` | Deduplicated species reference table with `is_endangered` (IUCN) and `is_invasive` (GISD) flags. |
 
 ### Coral (Analytics)
@@ -59,7 +58,7 @@ Columns present across the occurrence-based models:
 | Column | Type | Description |
 |--------|------|-------------|
 | `species` | STRING | Scientific species name (WoRMS-validated) |
-| `individual_count` | INTEGER | Individuals per sighting (defaults to 1 when null) |
+| `individual_count` | INTEGER | Individuals per sighting; null when not recorded or not a whole number |
 | `event_date` | TIMESTAMP | Observation timestamp (partition key) |
 | `geography` | GEOGRAPHY | BigQuery POINT geometry |
 | `source` | STRING | Origin dataset (`OBIS` or `GBIF`) |
@@ -93,7 +92,7 @@ Each data source has a dedicated handler in `ingest/`. All sources are run as **
 | WoRMS | ~593K | ~90MB | ~60s | DwCA zip (authenticated download) |
 | Divesites (PADI) | ~3,400 | <1MB | ~90s | Paginated REST API scrape |
 | SSI | ~10,600 | <1MB | ~3min | Session auth + async tile subdivision |
-| OBIS | ~162M | ~686MB | ~47min | boto3 parallel download (16 workers) from S3 + DuckDB batch processing |
+| OBIS | ~203M | ~6.3GB | ~47min on Cloud Run | boto3 parallel download (16 workers) from S3 + DuckDB batch processing |
 
 ### OBIS Optimization
 

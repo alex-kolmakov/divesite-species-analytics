@@ -1,31 +1,33 @@
 {{ config(
-    materialized='view',
+    materialized='table',
+    cluster_by=['species'],
 ) }}
 
--- The date comes from OBIS's validated date_mid (epoch ms), never from the free-text eventDate:
--- OBIS leaves date_mid/date_year null when it can't parse a date, while eventDate still holds
--- strings like '0000-00-00' or '3798-06-28' that SAFE_CAST turned into years 1 to 9840.
--- Absence records ("looked, not found") and rows OBIS QC dropped (on land, not marine) are excluded.
+-- One read of the OBIS parquet in GCS (~6 GB file, ~50 GiB billed: external parquet is billed at
+-- its uncompressed size). Downstream models and tests read this native copy instead.
+-- Rebuild it only after re-ingesting OBIS (dbt build --select obis_occurrences+).
+--
+-- Only WoRMS species are kept. Absence records, rows OBIS QC dropped and rows without a valid
+-- date are kept here and filtered in `occurrences`, so each rule can be counted.
+-- The date to use is date_mid (OBIS-validated, epoch ms), never the free-text eventDate.
 
 SELECT
     obis_id,
     dataset_id,
-    occurrenceID AS occurrence_id,
     species,
-    GREATEST(IFNULL(SAFE_CAST(individualCount AS INT), 1), 1) as individualcount,
-    TIMESTAMP_MILLIS(date_mid) as eventdate,
-    ST_GEOGPOINT(decimalLongitude, decimalLatitude) as geography,
-    coordinateUncertaintyInMeters AS coordinate_uncertainty_m,
-    basisOfRecord AS basis_of_record,
+    individualCount                     AS individualcount,
+    date_mid,
+    decimalLongitude                    AS decimallongitude,
+    decimalLatitude                     AS decimallatitude,
+    coordinateUncertaintyInMeters       AS coordinate_uncertainty_m,
+    basisOfRecord                       AS basis_of_record,
+    absence,
+    dropped,
     flags,
 FROM {{ source('marine_data', 'obis_table') }}
-WHERE
-    date_mid IS NOT NULL AND
-    decimalLongitude IS NOT NULL AND
-    decimalLatitude IS NOT NULL AND
-    species IS NOT NULL AND
-    absence IS NOT TRUE AND
-    dropped IS NOT TRUE
+WHERE species IN (
+    SELECT scientificName FROM {{ source('marine_data', 'worms_table') }}
+)
 
 {% if env_var("DEVELOPMENT", "false") == "true" %}
     AND MOD(FARM_FINGERPRINT(species), 100) = 0
