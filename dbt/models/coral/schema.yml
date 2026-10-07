@@ -3,68 +3,56 @@ version: 2
 models:
   - name: near_dive_site_occurrences
     description: >
-      Joins every species occurrence to its nearest dive site within a configurable radius
-      (PROXIMITY_METERS env var). Uses a CROSS JOIN filtered by ST_DWithin, then ranks by
-      distance and keeps only the closest site (proximity_rank = 1). In dev mode, a 5%
-      hash-based species subsample reduces the cross-join cost.
+      One row per (occurrence_key, site_id): every species occurrence within PROXIMITY_METERS of a
+      dive site, paired with every site in range. A sighting near several sites appears once per
+      site, so occurrence-level totals must come from occurrences, not from this table. In dev
+      mode, a 5% hash-based species subsample keeps the result small.
+
+      At ~100M rows every column test is a billed scan, so columns copied unchanged from
+      occurrences (species, event_date, source) rely on the tests there. The grain, the keys and
+      the distances are checked by the singular tests assert_near_pairs_unique,
+      assert_near_matches_naive_recount and assert_distance_*.
     columns:
-      - name: dive_site
-        description: Name of the nearest dive site within the proximity threshold.
+      - name: occurrence_key
+        description: Occurrence key from occurrences ('gbif:<id>' / 'obis:<id>'). Unique together with site_id.
+
+      - name: site_id
+        description: Dive site key (divesites.site_id). Unique together with occurrence_key.
         data_tests:
-          - not_null
           - relationships:
               to: ref('divesites')
-              field: title
-
-      - name: event_date
-        description: Timestamp of the observation.
-        data_tests:
-          - not_null
+              field: site_id
 
       - name: species
         description: WoRMS-validated scientific name of the observed species.
-        data_tests:
-          - not_null
-          - relationships:
-              to: source('marine_data', 'worms_table')
-              field: scientificName
+
+      - name: event_date
+        description: Timestamp of the observation.
 
       - name: individual_count
         description: Number of individuals observed; null when not recorded.
 
-      - name: distance_to_dive_site
-        description: Distance in metres between the occurrence and the matched dive site.
-        data_tests:
-          - not_null
-
-      - name: geography
-        description: Point geometry of the occurrence.
-        data_tests:
-          - not_null
-
       - name: source
         description: Data provenance tag (GBIF or OBIS).
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ['GBIF', 'OBIS']
 
-      - name: proximity_rank
-        description: Always 1 in this table since only the closest dive site is retained.
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: [1]
-              quote: false
+      - name: distance_m
+        description: Distance in metres between the occurrence and the dive site (0 to PROXIMITY_METERS).
 
   - name: monthly_species_occurrences
     description: >
-      Monthly aggregation of species sightings per dive site. Joins counts back to the
-      divesites table for geography metadata. Used by the Looker Studio dashboard for
-      temporal trend charts.
+      Sightings per dive site, species and calendar month. Joins counts back to divesites for the
+      site name and geography. Used by the Looker Studio dashboard for temporal charts.
     columns:
+      - name: site_id
+        description: Dive site key (divesites.site_id).
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('divesites')
+              field: site_id
+
       - name: dive_site
-        description: Name of the dive site.
+        description: Dive site name, for display only (not unique).
         data_tests:
           - not_null
 
@@ -78,20 +66,26 @@ models:
         data_tests:
           - not_null
 
+      - name: month_start
+        description: First day of the calendar month of the sightings (keeps the year).
+        data_tests:
+          - not_null
+
+      - name: year
+        description: Year of month_start.
+        data_tests:
+          - not_null
+
       - name: month
-        description: Three-letter month abbreviation (e.g. Jan, Feb).
+        description: Month number 1-12 of month_start; alone it folds all years together (seasonality).
         data_tests:
           - not_null
           - accepted_values:
-              values: [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
-
-      - name: event_date
-        description: Observation date used for the aggregation.
-        data_tests:
-          - not_null
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              quote: false
 
       - name: sighting_count
-        description: Number of occurrences for this species at this site on this date.
+        description: Number of occurrences of this species at this site in this month.
         data_tests:
           - not_null
 
@@ -101,10 +95,13 @@ models:
       indicates the most commonly observed species. Intermediate table feeding the
       denormalized UI models.
     columns:
-      - name: dive_site
-        description: Name of the dive site.
+      - name: site_id
+        description: Dive site key (divesites.site_id).
         data_tests:
           - not_null
+          - relationships:
+              to: ref('divesites')
+              field: site_id
 
       - name: species
         description: Scientific name of the species.
@@ -121,124 +118,167 @@ models:
         data_tests:
           - not_null
 
-  - name: species_divesite_summary
+      - name: days_seen
+        description: Distinct days with at least one record of the species at the site.
+        data_tests:
+          - not_null
+
+      - name: days_seen_recent
+        description: Distinct days within the last RECENT_YEARS (default 5) before the build.
+        data_tests:
+          - not_null
+
+      - name: first_seen
+        description: Earliest day the species was recorded at the site.
+
+      - name: last_seen
+        description: Latest day the species was recorded at the site.
+        data_tests:
+          - not_null
+
+      - name: months_seen
+        description: Calendar months (1-12) with records at the site, all years folded together.
+
+      - name: best_place_score
+        description: Days seen, each weighted 0.5^(age / BEST_PLACE_HALF_LIFE_YEARS); default half-life 3 years.
+        data_tests:
+          - not_null
+
+      - name: best_place_rank
+        description: Rank of this site for this species by best_place_score (1 = best place to see it).
+        data_tests:
+          - not_null
+
+  - name: divesite_species
     description: >
-      Denormalized table for species search → dive site distribution map.
-      Clustered by species for fast single-species lookups. Each row is a
-      (species, dive_site) pair with species metadata and dive site coordinates.
+      App table, one row per (site_id, species): counts, best-place metrics and the per-site
+      invasive label. Species text and global labels are in species_summary, once per species.
     columns:
-      - name: species
-        description: Scientific name (cluster key). Use for WHERE species = 'X' queries.
+      - name: site_id
+        description: Dive site key (cluster key). Use for WHERE site_id = 'X' queries.
         data_tests:
           - not_null
-
-      - name: common_name
-        description: English common name from GBIF (nullable — not all species have one).
-
-      - name: image_url
-        description: Wikipedia/Wikidata image URL (nullable).
-
-      - name: is_endangered
-        description: TRUE if species is on the IUCN Red List.
-        data_tests:
-          - not_null
-
-      - name: is_invasive
-        description: TRUE if species is in the Global Invasive Species Database.
-        data_tests:
-          - not_null
-
-      - name: species_type
-        description: Conservation status label for UI badges.
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ['endangered', 'invasive', 'normal']
-
-      - name: dive_site
-        description: Name of the dive site where this species has been observed.
-        data_tests:
-          - not_null
-
-      - name: dive_site_latitude
-        description: Latitude of the dive site for map marker placement.
-        data_tests:
-          - not_null
-
-      - name: dive_site_longitude
-        description: Longitude of the dive site for map marker placement.
-        data_tests:
-          - not_null
-
-      - name: sighting_count
-        description: Total number of occurrences for this species at this dive site.
-        data_tests:
-          - not_null
-
-      - name: frequency_rank
-        description: Rank of this species at this dive site (1 = most common).
-        data_tests:
-          - not_null
-
-  - name: divesite_species_detail
-    description: >
-      Denormalized table for dive site explorer → species panel.
-      Clustered by dive_site for fast single-site lookups. Each row is a
-      (dive_site, species) pair with full species metadata for rendering cards.
-    columns:
-      - name: dive_site
-        description: Dive site name (cluster key). Use for WHERE dive_site = 'X' queries.
-        data_tests:
-          - not_null
-
-      - name: dive_site_latitude
-        description: Latitude for map rendering.
-        data_tests:
-          - not_null
-
-      - name: dive_site_longitude
-        description: Longitude for map rendering.
-        data_tests:
-          - not_null
+          - relationships:
+              to: ref('divesites')
+              field: site_id
 
       - name: species
         description: Scientific name of the species.
         data_tests:
           - not_null
+          - relationships:
+              to: ref('species_summary')
+              field: species
+
+      - name: sighting_count
+        description: Records of this species at this site.
+        data_tests:
+          - not_null
+
+      - name: days_seen
+        description: Distinct days with at least one record of the species at the site.
+        data_tests:
+          - not_null
+
+      - name: days_seen_recent
+        description: Distinct days within the last RECENT_YEARS (default 5) before the build.
+        data_tests:
+          - not_null
+
+      - name: first_seen
+        description: Earliest day the species was recorded at the site.
+
+      - name: last_seen
+        description: Latest day the species was recorded at the site.
+        data_tests:
+          - not_null
+
+      - name: months_seen
+        description: Calendar months (1-12) with records at the site, all years folded together.
+
+      - name: best_place_score
+        description: Days seen, each weighted 0.5^(age / BEST_PLACE_HALF_LIFE_YEARS); default half-life 3 years.
+        data_tests:
+          - not_null
+
+      - name: frequency_rank
+        description: Rank by sighting count within the dive site (1 = most records).
+        data_tests:
+          - not_null
+
+      - name: best_place_rank
+        description: Rank of this site for this species by best_place_score (1 = best place to see it).
+        data_tests:
+          - not_null
+
+      - name: invasiveness
+        description: "'invasive' or 'of concern' when WRiMS lists the species for this site's region; null otherwise."
+        data_tests:
+          - accepted_values:
+              values: ['invasive', 'of concern']
+
+      - name: is_invasive_here
+        description: TRUE if the species is invasive at this site (invasiveness = 'invasive').
+        data_tests:
+          - not_null
+
+  - name: species_summary
+    description: >
+      App table, one row per species recorded at any dive site: names, description, image and
+      global labels, with how many sites it is recorded at.
+    columns:
+      - name: species
+        description: Scientific name.
+        data_tests:
+          - not_null
+          - unique
 
       - name: common_name
-        description: English common name (nullable).
+        description: English common name (nullable until enrichment covers it).
 
       - name: description
-        description: Wikipedia extract for species info panel (nullable).
+        description: Wikipedia extract (nullable).
 
       - name: image_url
-        description: Species image URL for card rendering (nullable).
+        description: Wikipedia/Wikidata image URL (nullable).
+
+      - name: iucn_category
+        description: Global IUCN Red List category (nullable — not every species is assessed).
 
       - name: is_endangered
-        description: IUCN Red List flag for badge rendering.
+        description: TRUE if the global IUCN category is vulnerable, endangered or critically endangered.
         data_tests:
           - not_null
 
       - name: is_invasive
-        description: GISD flag for badge rendering.
+        description: TRUE if WRiMS lists the species as Invasive anywhere. Per site see divesite_species.
         data_tests:
           - not_null
 
       - name: species_type
-        description: Conservation status label.
+        description: Species-level label for badges (endangered > invasive somewhere > normal).
         data_tests:
           - not_null
           - accepted_values:
               values: ['endangered', 'invasive', 'normal']
 
-      - name: sighting_count
-        description: Total sightings at this dive site.
+      - name: total_sites
+        description: Dive sites where the species is recorded.
         data_tests:
           - not_null
 
-      - name: frequency_rank
-        description: Species popularity rank at this site (1 = most frequent).
+      - name: invasive_sites
+        description: Dive sites where the species is recorded and invasive in the site's region.
+        data_tests:
+          - not_null
+
+      - name: recent_sites
+        description: Dive sites where the species was recorded within the last RECENT_YEARS.
+        data_tests:
+          - not_null
+
+      - name: last_seen
+        description: Latest day the species was recorded at any dive site.
         data_tests:
           - not_null
 
@@ -248,8 +288,17 @@ models:
       species counts, coordinates, and SSI dive metrics. Covers ~13,300 sites
       (SSI primary + PADI supplement). Loaded entirely on app init for map marker rendering.
     columns:
+      - name: site_id
+        description: Dive site key (divesites.site_id).
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('divesites')
+              field: site_id
+
       - name: dive_site
-        description: Dive site name (not globally unique — some sites share names).
+        description: Dive site name, for display only (not unique — some sites share names).
         data_tests:
           - not_null
 
@@ -293,20 +342,28 @@ models:
         data_tests:
           - not_null
 
+      - name: recent_species
+        description: Species recorded at this site within the last RECENT_YEARS (default 5).
+        data_tests:
+          - not_null
+
       - name: total_sightings
-        description: Total occurrence count across all species.
+        description: Occurrence records within range of this site. A record near several sites counts at each.
         data_tests:
           - not_null
 
       - name: endangered_count
-        description: Number of IUCN Red List species at this site.
+        description: Number of threatened (IUCN VU/EN/CR) species at this site.
         data_tests:
           - not_null
 
       - name: invasive_count
-        description: Number of invasive species at this site.
+        description: Number of species recorded at this site that are invasive in its region.
         data_tests:
           - not_null
+
+      - name: last_seen
+        description: Latest day any species was recorded at this site (null when none).
 
   - name: divesite_invasive_species
     description: >
@@ -352,9 +409,8 @@ exposures:
     maturity: medium
     url: https://marine-species-search.streamlit.app/
     depends_on:
-      - ref('species')
-      - ref('species_divesite_summary')
-      - ref('divesite_species_detail')
+      - ref('species_summary')
+      - ref('divesite_species')
       - ref('divesite_summary')
     owner:
       email: aleksandr.kolmakov@pm.me
