@@ -3,27 +3,67 @@ def test_health(test_client):
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
-def test_list_divesites(test_client):
-    response = test_client.get("/api/divesites")
+
+def test_list_divesites_keeps_same_named_sites_apart(test_client):
+    data = test_client.get("/api/divesites").json()
+    assert [d["site_id"] for d in data] == ["ssi:1", "ssi:2"]
+    assert {d["dive_site"] for d in data} == {"Blue Hole"}
+    assert data[0]["total_species"] == 3
+    assert data[1]["total_species"] == 1
+
+
+def test_divesite_detail(test_client):
+    response = test_client.get("/api/divesites/ssi:2")
     assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    # Based on our dummy data in conftest
-    assert len(data) > 0
-    assert data[0]["dive_site"] == "Site A"
+    assert response.json()["country_iso3"] == "EGY"
+
+
+def test_divesite_detail_unknown_site_is_404(test_client):
+    assert test_client.get("/api/divesites/ssi:999").status_code == 404
+
+
+def test_divesite_species_sorted_by_recency_by_default(test_client):
+    data = test_client.get("/api/divesites/ssi:1/species").json()
+    assert [d["species"] for d in data] == ["Pterois volitans", "Sphyrna lewini", "Chromis viridis"]
+    assert data[0]["common_name"] == "Red lionfish"
+    assert data[0]["months_seen"] == [1, 6]
+
+
+def test_divesite_species_sorted_by_records(test_client):
+    data = test_client.get("/api/divesites/ssi:1/species?sort=records").json()
+    assert [d["frequency_rank"] for d in data] == [1, 2, 3]
+
+
+def test_invasive_filter_is_per_site(test_client):
+    cayman = test_client.get("/api/divesites/ssi:1/species?type=invasive").json()
+    red_sea = test_client.get("/api/divesites/ssi:2/species?type=invasive").json()
+    assert [d["species"] for d in cayman] == ["Pterois volitans"]
+    assert red_sea == []
+
+
+def test_endangered_filter(test_client):
+    data = test_client.get("/api/divesites/ssi:1/species?type=endangered").json()
+    assert [d["species"] for d in data] == ["Sphyrna lewini"]
+    assert data[0]["iucn_category"] == "critically endangered"
+
+
+def test_unknown_type_is_rejected(test_client):
+    assert test_client.get("/api/divesites/ssi:1/species?type=rare").status_code == 422
+
 
 def test_search_species(test_client):
-    response = test_client.get("/api/species/search?q=Species")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert data[0]["species"] == "Species A"
+    data = test_client.get("/api/species/search?q=lionfish").json()
+    assert [d["species"] for d in data] == ["Pterois volitans"]
+    assert data[0]["is_invasive"] is True
 
-def test_get_divesite_species(test_client):
-    response = test_client.get("/api/divesites/Site A/species")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert data[0]["species"] == "Species A"
+
+def test_species_detail_and_404(test_client):
+    assert test_client.get("/api/species/Sphyrna lewini").json()["total_sites"] == 1
+    assert test_client.get("/api/species/Nonexistent species").status_code == 404
+
+
+def test_species_sites_best_place_first_with_local_invasiveness(test_client):
+    data = test_client.get("/api/species/Pterois volitans/sites").json()
+    assert [(d["site_id"], d["best_place_rank"]) for d in data] == [("ssi:1", 1), ("ssi:2", 2)]
+    assert [d["invasiveness"] for d in data] == ["invasive", None]
+    assert data[0]["latitude"] == 19.3

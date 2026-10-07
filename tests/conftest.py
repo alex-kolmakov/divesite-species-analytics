@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from app.backend.db import close_db, get_conn, init_db
 from app.backend.main import app
@@ -6,81 +8,76 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="module")
 def test_client():
-    # Setup: Initialize DB with in-memory connection
-    # We can perform any necessary setup for the in-memory DB here if needed
-    # For now, just ensuring it's initialized is enough as init_db does that.
-
-    # Override the lifespan or manually call init_db/close_db if strictly needed,
-    # but TestClient with FastAPI app usually handles lifespan if using a context manager,
-    # OR we can manually trigger it.
-    # However, since init_db is designed to load data, we might want to mock the data loading
-    # to avoid GCS calls or local file dependencies during tests if they don't exist.
-
-    # For a simple test, we will mock the data loading part or ensure it fails gracefully
-    # but still gives us a valid connection.
-
-    # Mock the config object entirely
-    from unittest.mock import MagicMock, patch
-
-    # Create a mock config that mimics the structure but has empty tables
+    # Initialise an empty in-memory DuckDB (no parquet loading), then create the three app
+    # tables with a small fixture: two sites that share a name, three species.
     mock_config = MagicMock()
     mock_config.tables = ()
     mock_config.use_gcs = False
     mock_config.local_data_dir = "non_existent_data_dir"
-
-    # Initialize DB manually with mocked config to get a clean state
     with patch("app.backend.db.config", mock_config):
         init_db()
 
-    # Create some dummy data for testing
     conn = get_conn()
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS divesite_summary (
-            dive_site VARCHAR, latitude DOUBLE, longitude DOUBLE,
+        CREATE TABLE divesite_summary (
+            site_id VARCHAR, dive_site VARCHAR, latitude DOUBLE, longitude DOUBLE,
             country_iso3 VARCHAR, avg_max_depth DOUBLE, avg_divetime DOUBLE,
             avg_visibility DOUBLE, avg_rating DOUBLE, logged_dives BIGINT,
             site_source VARCHAR,
-            total_species INTEGER, total_sightings INTEGER,
-            endangered_count INTEGER, invasive_count INTEGER
+            total_species BIGINT, recent_species BIGINT, total_sightings BIGINT,
+            endangered_count BIGINT, invasive_count BIGINT, last_seen DATE
         )
     """)
     conn.execute(
         "INSERT INTO divesite_summary VALUES"
-        " ('Site A', 10.0, 10.0, 'PHL', 18.0, 45.0, 15.0, 4.5, 3200, 'ssi', 5, 10, 1, 0)"
+        " ('ssi:1', 'Blue Hole', 19.3, -81.4, 'CYM', 18.0, 45.0, 15.0, 4.5, 3200, 'ssi',"
+        "  3, 2, 60, 1, 1, DATE '2025-06-01'),"
+        " ('ssi:2', 'Blue Hole', 27.6, 34.5, 'EGY', 30.0, 50.0, 25.0, 4.8, 9000, 'ssi',"
+        "  1, 1, 5, 0, 0, DATE '2024-03-01')"
     )
 
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS species_divesite_summary (
-            species VARCHAR, common_name VARCHAR, image_url VARCHAR,
-            species_type VARCHAR, is_endangered BOOLEAN, is_invasive BOOLEAN,
-            dive_site VARCHAR, dive_site_latitude DOUBLE,
-            dive_site_longitude DOUBLE, sighting_count INTEGER,
-            frequency_rank INTEGER
+        CREATE TABLE species_summary (
+            species VARCHAR, common_name VARCHAR, description VARCHAR, image_url VARCHAR,
+            iucn_category VARCHAR, is_endangered BOOLEAN, is_invasive BOOLEAN,
+            species_type VARCHAR, total_sites BIGINT, invasive_sites BIGINT,
+            recent_sites BIGINT, last_seen DATE
         )
     """)
     conn.execute(
-        "INSERT INTO species_divesite_summary VALUES"
-        " ('Species A', 'Common A', 'http://example.com/a.jpg',"
-        " 'normal', false, false, 'Site A', 10.0, 10.0, 5, 1)"
+        "INSERT INTO species_summary VALUES"
+        " ('Pterois volitans', 'Red lionfish', 'Venomous reef fish', NULL,"
+        "  'least concern', false, true, 'invasive', 2, 1, 2, DATE '2025-06-01'),"
+        " ('Sphyrna lewini', 'Scalloped hammerhead', NULL, NULL,"
+        "  'critically endangered', true, false, 'endangered', 1, 0, 1, DATE '2025-01-01'),"
+        " ('Chromis viridis', NULL, NULL, NULL,"
+        "  NULL, false, false, 'normal', 1, 0, 0, DATE '2010-01-01')"
     )
 
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS divesite_species_detail (
-            species VARCHAR, common_name VARCHAR, description VARCHAR,
-            image_url VARCHAR, species_type VARCHAR, is_endangered BOOLEAN,
-            is_invasive BOOLEAN, sighting_count INTEGER,
-            frequency_rank INTEGER, dive_site VARCHAR
+        CREATE TABLE divesite_species (
+            site_id VARCHAR, species VARCHAR, sighting_count BIGINT, days_seen BIGINT,
+            days_seen_recent BIGINT, first_seen DATE, last_seen DATE, months_seen BIGINT[],
+            best_place_score DOUBLE, frequency_rank BIGINT, best_place_rank BIGINT,
+            invasiveness VARCHAR, is_invasive_here BOOLEAN
         )
     """)
     conn.execute(
-        "INSERT INTO divesite_species_detail VALUES"
-        " ('Species A', 'Common A', 'Desc A', 'http://example.com/a.jpg',"
-        " 'normal', false, false, 5, 1, 'Site A')"
+        "INSERT INTO divesite_species VALUES"
+        # Lionfish: invasive in the Cayman Islands, native in the Red Sea; Cayman seen more lately
+        " ('ssi:1', 'Pterois volitans', 40, 30, 20, DATE '2012-01-01', DATE '2025-06-01', [1, 6],"
+        "  18.0, 1, 1, 'invasive', true),"
+        " ('ssi:2', 'Pterois volitans', 5, 4, 1, DATE '2020-01-01', DATE '2024-03-01', [3],"
+        "  1.5, 1, 2, NULL, false),"
+        " ('ssi:1', 'Sphyrna lewini', 15, 10, 8, DATE '2019-01-01', DATE '2025-01-01', [1],"
+        "  6.0, 2, 1, NULL, false),"
+        # Many old records, nothing recent: most records at the site, but a low score
+        " ('ssi:1', 'Chromis viridis', 5, 3, 0, DATE '2000-01-01', DATE '2010-01-01', [1],"
+        "  0.1, 3, 1, NULL, false)"
     )
 
     # Patch init_db in main so lifespan doesn't reset our DB
     with patch("app.backend.main.init_db"), TestClient(app) as client:
         yield client
 
-    # Teardown
     close_db()

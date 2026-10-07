@@ -1,84 +1,79 @@
-"""Dive site explorer API — backed by DuckDB `divesite_summary` and `divesite_species_detail`."""
+"""Dive site explorer API — backed by DuckDB `divesite_summary`, `divesite_species` and `species_summary`.
 
-from fastapi import APIRouter, Query
+Sites are addressed by `site_id` ('ssi:<id>' / 'padi:<id>'): names are not unique.
+"""
 
-from ..db import get_conn
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Query
+
+from ..db import fetch_dicts
 
 router = APIRouter(prefix="/api/divesites", tags=["divesites"])
+
+SITE_COLUMNS = """
+    site_id, dive_site, latitude, longitude,
+    country_iso3, avg_max_depth, avg_divetime,
+    avg_visibility, avg_rating, logged_dives, site_source,
+    total_species, recent_species, total_sightings,
+    endangered_count, invasive_count, last_seen
+"""
+
+# Endangered is the species' global IUCN status; invasive is per site (WRiMS region of the site).
+TYPE_FILTERS = {
+    "endangered": "s.is_endangered",
+    "invasive": "ds.is_invasive_here",
+    "normal": "NOT s.is_endangered AND NOT ds.is_invasive_here",
+}
+
+SORTS = {
+    "records": "ds.frequency_rank, ds.species",
+    "recent": "ds.best_place_score DESC, ds.species",
+}
 
 
 @router.get("")
 def list_divesites() -> list[dict]:
     """All dive sites with summary stats for initial map render."""
-    conn = get_conn()
-
-    sql = """
-        SELECT dive_site, latitude, longitude,
-               country_iso3, avg_max_depth, avg_divetime,
-               avg_visibility, avg_rating, logged_dives, site_source,
-               total_species, total_sightings,
-               endangered_count, invasive_count
-        FROM divesite_summary
-        ORDER BY total_species DESC
-    """
-    result = conn.execute(sql).fetchall()
-    columns = [
-        "dive_site",
-        "latitude",
-        "longitude",
-        "country_iso3",
-        "avg_max_depth",
-        "avg_divetime",
-        "avg_visibility",
-        "avg_rating",
-        "logged_dives",
-        "site_source",
-        "total_species",
-        "total_sightings",
-        "endangered_count",
-        "invasive_count",
-    ]
-    return [dict(zip(columns, row, strict=True)) for row in result]
+    return fetch_dicts(f"SELECT {SITE_COLUMNS} FROM divesite_summary ORDER BY total_species DESC")
 
 
-@router.get("/{dive_site}/species")
+@router.get("/{site_id}")
+def divesite_detail(site_id: str) -> dict:
+    """One dive site with its summary stats."""
+    rows = fetch_dicts(f"SELECT {SITE_COLUMNS} FROM divesite_summary WHERE site_id = ?", [site_id])
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"Dive site {site_id} not found")
+    return rows[0]
+
+
+@router.get("/{site_id}/species")
 def divesite_species(
-    dive_site: str,
-    type: str = Query("all", description="Filter: all | endangered | invasive | normal"),
-    limit: int = Query(50, ge=1, le=200),
+    site_id: str,
+    type: Literal["all", "endangered", "invasive", "normal"] = Query("all"),
+    sort: Literal["records", "recent"] = Query(
+        "recent", description="records = most records; recent = days seen, weighted by recency"
+    ),
+    limit: int = Query(50, ge=1, le=500),
 ) -> list[dict]:
-    """Species observed at a dive site, with metadata and sighting counts."""
-    conn = get_conn()
-
-    conditions = ["dive_site = ?"]
-    params: list[object] = [dive_site]
-
+    """Species observed at a dive site, with labels, counts and when they were seen."""
+    conditions = ["ds.site_id = ?"]
+    params: list[object] = [site_id]
     if type != "all":
-        conditions.append("species_type = ?")
-        params.append(type)
+        conditions.append(TYPE_FILTERS[type])
 
-    where = " AND ".join(conditions)
     sql = f"""
-        SELECT species, common_name, description, image_url,
-               species_type, is_endangered, is_invasive,
-               sighting_count, frequency_rank
-        FROM divesite_species_detail
-        WHERE {where}
-        ORDER BY frequency_rank
+        SELECT ds.species, s.common_name, s.description, s.image_url,
+               s.iucn_category, s.is_endangered,
+               ds.invasiveness, ds.is_invasive_here,
+               ds.sighting_count, ds.days_seen, ds.days_seen_recent,
+               ds.first_seen, ds.last_seen, ds.months_seen,
+               ds.frequency_rank
+        FROM divesite_species AS ds
+        JOIN species_summary AS s USING (species)
+        WHERE {" AND ".join(conditions)}
+        ORDER BY {SORTS[sort]}
         LIMIT ?
     """
     params.append(limit)
-
-    result = conn.execute(sql, params).fetchall()
-    columns = [
-        "species",
-        "common_name",
-        "description",
-        "image_url",
-        "species_type",
-        "is_endangered",
-        "is_invasive",
-        "sighting_count",
-        "frequency_rank",
-    ]
-    return [dict(zip(columns, row, strict=True)) for row in result]
+    return fetch_dicts(sql, params)
