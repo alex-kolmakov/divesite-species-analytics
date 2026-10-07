@@ -170,7 +170,7 @@ async def enrich_batch(batch: list[WorkItem]) -> list[Result]:
     wikidata_files = await get_wikidata_files(without_file) if without_file else {}
 
     file_titles = [p.file_title for p in pages.values() if p.file_title] + list(wikidata_files.values())
-    commons = await get_commons_images(file_titles) if file_titles else {}
+    commons, commons_failed = await get_commons_images(file_titles) if file_titles else ({}, set())
 
     results: dict[str, Result] = {}
     for w in batch:
@@ -179,16 +179,16 @@ async def enrich_batch(batch: list[WorkItem]) -> list[Result]:
             r.refresh_common = True
             if w.species in common_names:
                 r.common_name, r.common_name_source = common_names[w.species], "gbif"
-        if w.species in wiki_errors:
-            # Keep what's stored and leave the row eligible for the next run
+        page = pages.get(w.species)
+        wiki_file = page.file_title if page else None
+        wikidata_file = wikidata_files.get(w.species)
+        if w.species in wiki_errors or wiki_file in commons_failed or wikidata_file in commons_failed:
+            # A lookup failed: keep what's stored and leave the row eligible for the next run
             r.refresh_text_and_image, r.attempted_at = False, None
             results[w.species] = r
             continue
-        page = pages.get(w.species)
         if page and page.description:
             r.description, r.description_source, r.description_is_stub = page.description, "wikipedia", page.is_stub
-        wiki_file = page.file_title if page else None
-        wikidata_file = wikidata_files.get(w.species)
         if wiki_file and wiki_file in commons:
             _set_image(r, commons[wiki_file], "wikipedia")
         elif wikidata_file and wikidata_file in commons:

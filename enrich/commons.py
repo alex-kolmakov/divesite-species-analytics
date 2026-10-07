@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 API = "https://commons.wikimedia.org/w/api.php"
 BATCH_SIZE = 50  # imageinfo accepts up to 50 titles per request
-MAX_CONCURRENT = 3
-MAX_RETRIES = 3
+MAX_CONCURRENT = 1
+MAX_RETRIES = 5
 THUMB_WIDTH = 800
 
 _TAG = re.compile(r"<[^>]+>")
@@ -76,8 +76,13 @@ async def _query_batch(
     titles: list[str],
     session: aiohttp.ClientSession,
     semaphore: asyncio.Semaphore,
-) -> dict[str, ImageInfo]:
-    params = {
+) -> dict[str, ImageInfo] | None:
+    """ImageInfo for a batch of files, or None if Commons didn't answer after retries.
+
+    POST, one request at a time: concurrent requests got empty or error answers (2026-10-07),
+    which used to read as "no usable image".
+    """
+    data = {
         "action": "query",
         "format": "json",
         "prop": "imageinfo",
@@ -87,34 +92,45 @@ async def _query_batch(
         "titles": "|".join(f"File:{t}" for t in titles),
     }
     async with semaphore:
-        backoff = 2
+        backoff = 2.0
         for _attempt in range(MAX_RETRIES + 1):
             try:
                 await asyncio.sleep(random.uniform(0.2, 0.5))
-                async with session.get(API, params=params) as resp:
-                    if resp.status == 429:
-                        await asyncio.sleep(backoff + random.uniform(0, 1))
-                        backoff *= 2
-                        continue
-                    if resp.status != 200:
-                        return {}
-                    return parse_imageinfo(await resp.json())
-            except aiohttp.ClientError:
+                async with session.post(API, data=data) as resp:
+                    body = await resp.json(content_type=None) if resp.status == 200 else None
+                    retry_after = resp.headers.get("Retry-After")
+                if isinstance(body, dict) and "query" in body and "error" not in body:
+                    return parse_imageinfo(body)
+                wait = max(backoff, float(retry_after)) if retry_after and retry_after.isdigit() else backoff
+                logger.debug("Commons batch failed (status %s), retrying in %.0fs", resp.status, wait)
+                await asyncio.sleep(wait + random.uniform(0, 1))
+            except (aiohttp.ClientError, TimeoutError, ValueError):
                 await asyncio.sleep(backoff)
-                backoff *= 2
-        return {}
+            backoff *= 2
+        return None
 
 
-async def get_commons_images(file_titles: list[str]) -> dict[str, ImageInfo]:
-    """ImageInfo for each Commons file whose license the app may show."""
+async def get_commons_images(file_titles: list[str]) -> tuple[dict[str, ImageInfo], set[str]]:
+    """ImageInfo for each Commons file the app may show, and the files whose lookup failed.
+
+    A file in neither was found but has no allowed license or no thumbnail.
+    """
     unique = list(dict.fromkeys(file_titles))
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
     found: dict[str, ImageInfo] = {}
+    failed: set[str] = set()
     async with aiohttp.ClientSession(headers=HEADERS) as session:
-        tasks = [
-            _query_batch(unique[i : i + BATCH_SIZE], session, semaphore) for i in range(0, len(unique), BATCH_SIZE)
-        ]
-        for result in await asyncio.gather(*tasks):
+        batches = [unique[i : i + BATCH_SIZE] for i in range(0, len(unique), BATCH_SIZE)]
+        results = await asyncio.gather(*(_query_batch(b, session, semaphore) for b in batches))
+    for batch, result in zip(batches, results, strict=True):
+        if result is None:
+            failed.update(batch)
+        else:
             found.update(result)
-    logger.info("Commons: %d/%d files usable (allowed license, thumbnail)", len(found), len(unique))
-    return found
+    logger.info(
+        "Commons: %d/%d files usable (allowed license, thumbnail), %d lookups failed",
+        len(found),
+        len(unique),
+        len(failed),
+    )
+    return found, failed

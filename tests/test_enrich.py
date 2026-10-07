@@ -240,7 +240,7 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
         return {"Has wikidata": "wd.jpg"}
 
     async def commons(titles):
-        return {"wp.jpg": _info("https://wp"), "wd.jpg": _info("https://wd")}
+        return {"wp.jpg": _info("https://wp"), "wd.jpg": _info("https://wd")}, set()
 
     async def occurrences(keys):
         assert set(keys) == {"Only occurrences"}
@@ -272,3 +272,38 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
     failed = results["Wiki failed"]
     assert failed.refresh_text_and_image is False  # keep what's stored
     assert failed.attempted_at is None  # stays eligible for the next run
+
+
+def test_failed_commons_lookup_keeps_stored_image():
+    batch = [WorkItem("Commons failed", has_common_name=True)]
+
+    async def match(names):
+        return {"Commons failed": 1}
+
+    async def common(keys):
+        return {}
+
+    async def wikipedia(names):
+        return {"Commons failed": WikiPage("A fish. It swims.", False, "busy.jpg")}, set()
+
+    async def wikidata(names):
+        return {}
+
+    async def commons(titles):
+        return {}, {"busy.jpg"}
+
+    async def occurrences(keys):
+        raise AssertionError("a failed Commons lookup must not fall back to occurrence photos")
+
+    with (
+        patch("enrich.__main__.match_species", side_effect=match),
+        patch("enrich.__main__.get_common_names", side_effect=common),
+        patch("enrich.__main__.get_wikipedia_pages", side_effect=wikipedia),
+        patch("enrich.__main__.get_wikidata_files", side_effect=wikidata),
+        patch("enrich.__main__.get_commons_images", side_effect=commons),
+        patch("enrich.__main__.get_occurrence_images", side_effect=occurrences),
+    ):
+        [result] = asyncio.run(enrich_batch(batch))
+
+    assert result.refresh_text_and_image is False
+    assert result.attempted_at is None
