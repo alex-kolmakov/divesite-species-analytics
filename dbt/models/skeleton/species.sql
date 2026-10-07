@@ -9,8 +9,11 @@ WITH unique_species AS (
 -- threatened categories (VU, EN, CR) count as endangered; the list also holds Least Concern.
 -- is_invasive means "invasive somewhere" (WRiMS): whether it is invasive at a given dive site is
 -- in divesite_invasive_species, since the same species can be native elsewhere.
+-- taxon_class comes from WoRMS (the accepted name's row first); it is how birds (Aves), which WoRMS
+-- lists as marine, are kept out of the per-site lists.
 SELECT
     spec.species,
+    taxonomy.taxon_class,
     redlist.threatStatus AS iucn_category,
     COALESCE(redlist.is_threatened, FALSE) AS is_endangered,
     invasive.species IS NOT NULL AS is_invasive,
@@ -35,3 +38,11 @@ LEFT JOIN (
     WHERE invasiveness = 'Invasive'
 ) AS invasive
     ON spec.species = invasive.species
+LEFT JOIN (
+    SELECT
+        scientificName,
+        ARRAY_AGG(`class` IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS taxon_class
+    FROM {{ source('marine_data', 'worms_table') }}
+    GROUP BY scientificName
+) AS taxonomy
+    ON spec.species = taxonomy.scientificName

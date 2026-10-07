@@ -83,6 +83,9 @@ models:
               values: [true, false]
               quote: false
 
+      - name: taxon_class
+        description: WoRMS class of the species (accepted name's row first); Aves marks birds.
+
       - name: species_type
         description: >
           Classification label derived from conservation status. Endangered takes priority
