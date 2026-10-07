@@ -67,3 +67,24 @@ def test_species_sites_best_place_first_with_local_invasiveness(test_client):
     assert [(d["site_id"], d["best_place_rank"]) for d in data] == [("ssi:1", 1), ("ssi:2", 2)]
     assert [d["invasiveness"] for d in data] == ["invasive", None]
     assert data[0]["latitude"] == 19.3
+
+
+def test_birds_are_left_out_of_site_lists(test_client):
+    for sort in ("recent", "records"):
+        data = test_client.get(f"/api/divesites/ssi:1/species?sort={sort}").json()
+        assert "Pandion haliaetus" not in [d["species"] for d in data]
+
+
+def test_birds_stay_searchable_with_their_sites(test_client):
+    found = test_client.get("/api/species/search?q=osprey").json()
+    assert [(d["species"], d["taxon_class"]) for d in found] == [("Pandion haliaetus", "Aves")]
+    sites = test_client.get("/api/species/Pandion haliaetus/sites").json()
+    assert [d["site_id"] for d in sites] == ["ssi:1"]
+
+
+def test_images_come_with_credit_and_license(test_client):
+    species = test_client.get("/api/species/Pterois volitans").json()
+    assert (species["image_credit"], species["image_license"]) == ("Jens Petersen", "CC BY 2.5")
+    assert species["image_page_url"].startswith("https://commons.wikimedia.org/")
+    site_row = test_client.get("/api/divesites/ssi:1/species").json()[0]
+    assert site_row["image_license"] == "CC BY 2.5"

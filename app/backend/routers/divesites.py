@@ -56,14 +56,19 @@ def divesite_species(
     ),
     limit: int = Query(50, ge=1, le=500),
 ) -> list[dict]:
-    """Species observed at a dive site, with labels, counts and when they were seen."""
-    conditions = ["ds.site_id = ?"]
+    """Species observed at a dive site, with labels, counts and when they were seen.
+
+    Birds are left out: WoRMS lists seabirds as marine, but they aren't what a diver sees. They
+    still appear on their own species pages.
+    """
+    conditions = ["ds.site_id = ?", "NOT ds.is_bird"]
     params: list[object] = [site_id]
     if type != "all":
         conditions.append(TYPE_FILTERS[type])
 
     sql = f"""
-        SELECT ds.species, s.common_name, s.description, s.image_url,
+        SELECT ds.species, s.common_name, s.description, s.description_is_stub, s.image_url,
+               s.image_credit, s.image_license, s.image_page_url,
                s.iucn_category, s.is_endangered,
                ds.invasiveness, ds.is_invasive_here,
                ds.sighting_count, ds.days_seen, ds.days_seen_recent,

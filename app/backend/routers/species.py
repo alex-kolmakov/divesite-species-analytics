@@ -9,7 +9,8 @@ from ..db import fetch_dicts
 router = APIRouter(prefix="/api/species", tags=["species"])
 
 SPECIES_COLUMNS = """
-    species, common_name, description, image_url,
+    species, taxon_class, common_name, description, description_is_stub,
+    image_url, image_credit, image_license, image_license_url, image_page_url, image_source,
     iucn_category, is_endangered, is_invasive, species_type,
     total_sites, invasive_sites, recent_sites, last_seen
 """
@@ -34,8 +35,8 @@ def search_species(
         params.append(type)
 
     sql = f"""
-        SELECT species, common_name, image_url, iucn_category,
-               species_type, is_endangered, is_invasive, total_sites
+        SELECT species, taxon_class, common_name, image_url, image_credit, image_license, image_page_url,
+               iucn_category, species_type, is_endangered, is_invasive, total_sites
         FROM species_summary
         WHERE {" AND ".join(conditions)}
         ORDER BY recent_sites DESC, total_sites DESC, species
