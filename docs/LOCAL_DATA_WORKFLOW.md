@@ -34,7 +34,7 @@ source .env
 
 # Run dbt models
 cd dbt
-uv run dbt run --select species_divesite_summary divesite_species_detail divesite_summary
+uv run dbt run --select divesite_species_frequency+
 cd ..
 ```
 
@@ -42,18 +42,15 @@ cd ..
 
 Export the refreshed BigQuery tables to Google Cloud Storage as Parquet files. Replace `$PROJECT_ID`, `$BIGQUERY_DATASET`, and `$GCS_BUCKET` with your values (or source `.env` first).
 
+One folder per table: `divesite_species` is large enough that `bq extract` splits it into parts. (`make update-data` does this and the download below.)
+
 ```bash
-bq extract --destination_format=PARQUET --compression=SNAPPY \
-  "${PROJECT_ID}:${BIGQUERY_DATASET}.species_divesite_summary" \
-  "gs://${GCS_BUCKET}/app-export/species_divesite_summary.parquet"
-
-bq extract --destination_format=PARQUET --compression=SNAPPY \
-  "${PROJECT_ID}:${BIGQUERY_DATASET}.divesite_species_detail" \
-  "gs://${GCS_BUCKET}/app-export/divesite_species_detail.parquet"
-
-bq extract --destination_format=PARQUET --compression=SNAPPY \
-  "${PROJECT_ID}:${BIGQUERY_DATASET}.divesite_summary" \
-  "gs://${GCS_BUCKET}/app-export/divesite_summary.parquet"
+for t in divesite_summary species_summary divesite_species; do
+  gcloud storage rm --quiet "gs://${GCS_BUCKET}/app-export/${t}/**" 2>/dev/null || true
+  bq extract --destination_format=PARQUET --compression=SNAPPY \
+    "${PROJECT_ID}:${BIGQUERY_DATASET}.${t}" \
+    "gs://${GCS_BUCKET}/app-export/${t}/part-*.parquet"
+done
 ```
 
 ### 3. Download Data Locally
@@ -61,11 +58,10 @@ bq extract --destination_format=PARQUET --compression=SNAPPY \
 Fetch the Parquet files from GCS to your local backend data directory.
 
 ```bash
-# Ensure directory exists
-mkdir -p app/backend/data
-
-# Download files
-gcloud storage cp "gs://${GCS_BUCKET}/app-export/*.parquet" app/backend/data/
+for t in divesite_summary species_summary divesite_species; do
+  rm -rf "app/backend/data/${t}" && mkdir -p "app/backend/data/${t}"
+  gcloud storage cp "gs://${GCS_BUCKET}/app-export/${t}/*.parquet" "app/backend/data/${t}/"
+done
 ```
 
 ### 4. Launch UI Locally (Docker)

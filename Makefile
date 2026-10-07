@@ -42,7 +42,7 @@ INGEST_SOURCES := iucn gisd worms divesites ssi wrims obis
 # BigQuery export settings
 BQ_DATASET   ?= marine_data
 EXPORT_PREFIX := app-export
-APP_TABLES   := species_divesite_summary divesite_species_detail divesite_summary
+APP_TABLES   := divesite_summary species_summary divesite_species
 LOCAL_DATA    := app/backend/data
 
 APP_IMAGE := $(REGISTRY)/app:latest
@@ -101,19 +101,20 @@ update-data: ## Enrich + rebuild dbt + export + download fresh data locally
 	@echo "→ Step 1/4: Enriching species data..."
 	python -m enrich --new-only
 	@echo "→ Step 2/4: Rebuilding dbt coral models..."
-	cd dbt && dbt run --select species_divesite_summary divesite_species_detail divesite_summary
+	cd dbt && dbt run --select divesite_species_frequency+
 	@echo "→ Step 3/4: Exporting tables to GCS..."
 	@for table in $(APP_TABLES); do \
 		echo "  → $$table"; \
+		gcloud storage rm --quiet 'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'/**' 2>/dev/null || true; \
 		bq extract --destination_format=PARQUET \
 			'$(PROJECT_ID):$(BQ_DATASET).'"$$table" \
-			'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet'; \
+			'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'/part-*.parquet'; \
 	done
 	@echo "→ Step 4/4: Downloading parquets to $(LOCAL_DATA)/..."
-	@mkdir -p $(LOCAL_DATA)
 	@for table in $(APP_TABLES); do \
-		echo "  → $$table.parquet"; \
-		gsutil cp 'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'.parquet' $(LOCAL_DATA)/; \
+		echo "  → $$table/"; \
+		rm -rf $(LOCAL_DATA)/$$table && mkdir -p $(LOCAL_DATA)/$$table; \
+		gcloud storage cp 'gs://$(BUCKET)/$(EXPORT_PREFIX)/'"$$table"'/*.parquet' $(LOCAL_DATA)/$$table/; \
 	done
 	@echo "✓ Data update complete. Run: make app"
 
