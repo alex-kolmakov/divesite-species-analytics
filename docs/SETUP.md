@@ -184,6 +184,8 @@ Copy `env.example` to `.env` and fill in your values. The `.env` file uses quote
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENRICH_BATCH_SIZE` | `500` | Number of species per enrichment batch |
+| `ENRICH_FLUSH_SIZE` | `2000` | Species per merge into BigQuery |
+| `ENRICH_RETRY_DAYS` | `90` | Retry a field that found nothing after this many days |
 | `OBIS_BATCH_SIZE` | `1` | Number of OBIS parquet files to download in parallel |
 | `PROXIMITY_METERS` | `3000` | Radius (meters) for matching occurrences to dive sites (used by dbt) |
 | `TEMP_DIR` | `/tmp/marine-data` | Local temp directory for downloaded files |

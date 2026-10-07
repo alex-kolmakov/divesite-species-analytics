@@ -106,47 +106,27 @@ All sources output parquet files to a temp directory, then upload to GCS. The pi
 
 ## Enrichment Pipeline
 
-The enrichment pipeline (`enrich/`) populates species common names, descriptions, and images. It uses a **3-stage architecture designed to minimize BigQuery costs**.
+The enrichment pipeline (`enrich/`) gives the species the app shows a common name, a description and a credited image, stored in `species_enrichment` (a dbt source, never rebuilt by dbt).
 
-### Architecture (5 BigQuery queries total)
+### What it enriches
 
-```
-Stage 1: Fetch work list          Stage 2: Process locally        Stage 3: Upload
-┌─────────────────────┐          ┌──────────────────────┐       ┌──────────────┐
-│ 1 query: get stats  │          │ For each batch:      │       │ 1 query:     │
-│ 1 query: fetch all  │──────▶  │   • Call APIs        │──────▶│   MERGE via  │
-│   species to process│          │   • Checkpoint /tmp  │       │   staging    │
-│ 1 query: ensure     │          │   • 0 BQ queries     │       │   table      │
-│   table exists      │          └──────────────────────┘       └──────────────┘
-└─────────────────────┘
-```
+Species in `species_summary` (every species recorded near a dive site), most widespread first. A species is picked when it has no enrichment row, when this pipeline has never processed its row (`attempted_at` is NULL), or when a field is still missing and the last attempt is older than `ENRICH_RETRY_DAYS` (90).
 
-Previous approach: ~3N+2 queries for N batches (read + write per batch). Current: **5 total** — a **60x cost reduction** for 100 batches.
+### Sources, in order
 
-### API Fallback Chain
+1. **Common name:** GBIF species match (exact, species rank) → English vernacular name.
+2. **Description:** Wikipedia summary by scientific name. Pages that are the genus (the species redirects to its genus) or a disambiguation are rejected; one-sentence "X is a species of …" stubs are kept and flagged `description_is_stub`.
+3. **Image:** the Wikipedia article's image, else Wikidata's (P18), both resolved through Wikimedia Commons for an 800 px thumbnail (JPEG/PNG even for SVG/TIFF), the artist and the license. Local en.wikipedia files (usually non-free) are skipped.
+4. **Image fallback:** a photo from a GBIF occurrence record, field observations (e.g. iNaturalist) before museum specimens.
 
-For each species, three API sources are queried in a concurrent-then-fallback pattern:
+Only images under CC0/public domain, CC BY, CC BY-SA, CC BY-NC or CC BY-NC-SA are kept (`enrich/licenses.py`), always with `image_credit`, `image_license` and `image_page_url` so the app can credit them. NoDerivatives and unknown licenses are dropped.
 
-1. **GBIF REST API** → common names (English preferred)
-2. **Wikipedia REST API** → description (first paragraph) + image URL
-3. **Wikidata SPARQL** → fallback image URL if Wikipedia has none
+### Running and failure handling
 
-Steps 1 and 2 run **concurrently** via `asyncio.gather`. Step 3 runs only when Wikipedia didn't provide an image. All APIs use rate limiting, exponential backoff, and jitter.
-
-### Fault Tolerance
-
-- **Checkpoint after every batch**: progress saved to `/tmp/enrich_checkpoints/enrichment_progress.json`
-- **`--resume`**: continue from last checkpoint if a job fails mid-run
-- **`--checkpoint-only`**: upload partial results to BigQuery without processing more batches
-- **`--new-only`**: skip species that already have enrichment data (only process unattempted ones)
-
-### Coverage
-
-| Field | Coverage |
-|-------|----------|
-| Common names | ~62% |
-| Descriptions | ~72% |
-| Images | ~76% |
+- Results are merged into BigQuery every `ENRICH_FLUSH_SIZE` (2,000) species through a staging table, so a killed job loses at most one chunk. No local checkpoint.
+- A Wikipedia lookup that fails (rate limit, network) leaves the stored row untouched and its `attempted_at` NULL, so the next run retries it; a genuine miss is recorded as a miss.
+- `--new-only` (only species with no row), `--limit N`, `--dry-run` (look up, write nothing).
+- Each run ends with a coverage line for the species at dive sites.
 
 ---
 

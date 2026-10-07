@@ -42,7 +42,7 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 
 **40% faster OBIS ingestion** — boto3 parallel download (16 workers) + DuckDB batch processing replaced single-threaded DuckDB httpfs. 78 min → 47 min for 162M rows.
 
-**Fault-tolerant enrichment** — Checkpoint after every batch, resume from failure with `--resume`, upload partial results with `--checkpoint-only`. No work is lost on crash.
+**Credited enrichment** — Common names, Wikipedia descriptions and images for every species near a dive site, with GBIF occurrence photos as a fallback; every image keeps its photographer and license. Progress is merged into BigQuery every 2,000 species.
 
 **Parallel Cloud Run execution** — 5 ingest sources run simultaneously as separate Cloud Run job executions from the same container image.
 
@@ -95,7 +95,8 @@ export GOOGLE_APPLICATION_CREDENTIALS=secret.json
 
 uv run python -m ingest --source iucn       # ingest a single source
 cd dbt && uv run dbt run && cd ..            # build dbt models
-uv run python -m enrich --new-only           # enrich unattempted species
+uv run python -m enrich --dry-run --limit 50 # look up 50 species, write nothing
+uv run python -m enrich                      # enrich new, unprocessed and due-for-retry species
 uv run python -m app.backend.main            # start app on http://localhost:8080
 ```
 
