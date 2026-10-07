@@ -3,4 +3,5 @@
 
 SELECT *
 FROM {{ ref('near_dive_site_occurrences') }}
-WHERE distance_to_dive_site > {{ env_var('PROXIMITY_METERS') }}
+WHERE distance_m > {{ env_var('PROXIMITY_METERS') }}
+   OR distance_m IS NULL

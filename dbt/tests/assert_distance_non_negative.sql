@@ -2,4 +2,4 @@
 
 SELECT *
 FROM {{ ref('near_dive_site_occurrences') }}
-WHERE distance_to_dive_site < 0
+WHERE distance_m < 0
