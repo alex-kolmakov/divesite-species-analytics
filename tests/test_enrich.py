@@ -54,9 +54,17 @@ def test_license_normalisation_and_allowlist(raw, label, allowed):
 
 
 def test_genus_redirect_is_rejected_but_common_name_redirect_is_not():
-    assert is_genus_page("Pearsonothuria graeffei", "Pearsonothuria")
+    sweepers = "Parapriacanthus is a genus of sweepers native to the Indian Ocean."
+    assert is_genus_page("Parapriacanthus ransonneti", "Parapriacanthus", sweepers)
     assert not is_genus_page("Acropora palmata", "Elkhorn_coral")
     assert not is_genus_page("Pandion haliaetus", "Osprey")
+
+
+def test_monotypic_genus_page_is_kept():
+    text = "Cryptodendrum is a genus of sea anemones. It is monotypic with a single species, Cryptodendrum adhaesivum."
+    assert not is_genus_page("Cryptodendrum adhaesivum", "Cryptodendrum", text)
+    named = "Eusmilia is a genus of stony coral represented by the species Eusmilia fastigiata."
+    assert not is_genus_page("Eusmilia fastigiata", "Eusmilia", named)
 
 
 def test_one_sentence_species_line_is_a_stub():

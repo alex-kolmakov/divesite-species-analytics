@@ -38,14 +38,20 @@ class WikiPage:
     file_title: str | None
 
 
-def is_genus_page(species: str, canonical_title: str) -> bool:
-    """True when Wikipedia redirected the species to its genus article.
+def is_genus_page(species: str, canonical_title: str, extract: str = "") -> bool:
+    """True when Wikipedia redirected the species to an article about its whole genus.
 
     A redirect to a common name is fine ("Acropora palmata" -> "Elkhorn coral"); a redirect to the
-    genus ("Pearsonothuria graeffei" -> "Pearsonothuria") describes a different taxon.
+    genus ("Parapriacanthus ransonneti" -> "Parapriacanthus") describes several species. A
+    monotypic genus is the exception: its article is about the one species ("Cryptodendrum is a
+    genus ... It is monotypic with a single species, Cryptodendrum adhaesivum"), so it is kept when
+    it says monotypic or names the species.
     """
     title = unquote(canonical_title).replace("_", " ").strip().lower()
-    return title == genus(species).lower()
+    if title != genus(species).lower():
+        return False
+    text = extract.lower()
+    return "monotypic" not in text and canonical_name(species).lower() not in text
 
 
 def is_stub(description: str) -> bool:
@@ -105,7 +111,7 @@ async def _get_page(
 
                 if data.get("type") == "disambiguation":
                     return None
-                if is_genus_page(species, data.get("titles", {}).get("canonical", "")):
+                if is_genus_page(species, data.get("titles", {}).get("canonical", ""), data.get("extract") or ""):
                     return None
 
                 description = data.get("extract") or None
