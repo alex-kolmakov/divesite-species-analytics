@@ -1,15 +1,15 @@
--- The divesite_summary species counts must match the actual detail rows.
+-- The divesite_summary species counts must match the actual divesite_species rows.
 -- If these diverge, the summary table is stale or the aggregation is wrong.
--- The UI relies on summary counts matching what the detail panel shows.
+-- The UI relies on summary counts matching what the site panel shows.
 
 SELECT
-    ds.dive_site,
+    ds.site_id,
     ds.total_species AS summary_count,
-    detail.actual_count
+    COALESCE(detail.actual_count, 0) AS actual_count
 FROM {{ ref('divesite_summary') }} AS ds
-INNER JOIN (
-    SELECT dive_site, COUNT(DISTINCT species) AS actual_count
-    FROM {{ ref('divesite_species_detail') }}
-    GROUP BY dive_site
-) AS detail ON ds.dive_site = detail.dive_site
-WHERE ds.total_species != detail.actual_count
+LEFT JOIN (
+    SELECT site_id, COUNT(DISTINCT species) AS actual_count
+    FROM {{ ref('divesite_species') }}
+    GROUP BY site_id
+) AS detail ON ds.site_id = detail.site_id
+WHERE ds.total_species != COALESCE(detail.actual_count, 0)
