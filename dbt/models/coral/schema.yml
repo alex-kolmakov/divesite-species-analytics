@@ -202,9 +202,7 @@ models:
           - not_null
 
       - name: frequency_rank
-        description: Rank by sighting count within the dive site (1 = most records).
-        data_tests:
-          - not_null
+        description: Rank by sighting count among the species the site list shows (1 = most records); null for birds.
 
       - name: best_place_rank
         description: Rank of this site for this species by best_place_score (1 = best place to see it).
@@ -222,6 +220,11 @@ models:
         data_tests:
           - not_null
 
+      - name: is_bird
+        description: TRUE for class Aves. Birds are left out of site lists and site counts, not out of species pages.
+        data_tests:
+          - not_null
+
   - name: species_summary
     description: >
       App table, one row per species recorded at any dive site: names, description, image and
@@ -233,14 +236,39 @@ models:
           - not_null
           - unique
 
+      - name: taxon_class
+        description: WoRMS class (Actinopteri, Anthozoa, Aves, ...). Birds stay searchable here.
+
       - name: common_name
-        description: English common name (nullable until enrichment covers it).
+        description: English common name from GBIF (nullable).
 
       - name: description
         description: Wikipedia extract (nullable).
 
+      - name: description_is_stub
+        description: TRUE when the description is a one-sentence "X is a species of ..." stub.
+
       - name: image_url
-        description: Wikipedia/Wikidata image URL (nullable).
+        description: Image to display (Commons 800 px thumbnail or a GBIF occurrence photo); nullable.
+
+      - name: image_credit
+        description: Photographer or source to credit; null for some Commons files (credit "via Wikimedia Commons").
+
+      - name: image_license
+        description: Short license label (CC0, Public domain, CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, with version).
+        data_tests:
+          - not_null:
+              config:
+                where: "image_url IS NOT NULL"
+
+      - name: image_license_url
+        description: License URL when known.
+
+      - name: image_page_url
+        description: Where the credit links to (Commons file page or GBIF occurrence page).
+
+      - name: image_source
+        description: wikipedia, wikidata or gbif_occurrence.
 
       - name: iucn_category
         description: Global IUCN Red List category (nullable — not every species is assessed).

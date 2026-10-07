@@ -6,9 +6,18 @@
 
 SELECT
     sp.species,
+    sp.taxon_class,
     enrich.common_name,
     enrich.description,
+    enrich.description_is_stub,
     enrich.image_url,
+    -- Credit for the image: show image_credit (or "via Wikimedia Commons" when empty) and license,
+    -- linking to image_page_url
+    enrich.image_credit,
+    enrich.image_license,
+    enrich.image_license_url,
+    enrich.image_page_url,
+    enrich.image_source,
     sp.iucn_category,
     sp.is_endangered,
     sp.is_invasive,
