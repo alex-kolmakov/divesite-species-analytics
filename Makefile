@@ -99,7 +99,7 @@ setup: ## One-time: authenticate, enable GCP APIs, build images, deploy infrastr
 .PHONY: update-data
 update-data: ## Enrich + rebuild dbt + export + download fresh data locally
 	@echo "→ Step 1/4: Enriching species data..."
-	python -m enrich --new-only
+	python -m enrich
 	@echo "→ Step 2/4: Rebuilding dbt coral models..."
 	cd dbt && dbt run --select divesite_species_frequency+
 	@echo "→ Step 3/4: Exporting tables to GCS..."

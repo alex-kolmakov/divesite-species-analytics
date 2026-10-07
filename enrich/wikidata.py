@@ -1,10 +1,12 @@
 import asyncio
-import hashlib
 import logging
 import random
 from urllib.parse import quote, unquote
 
 import aiohttp
+
+from enrich.names import canonical_name
+from enrich.wikipedia import UA
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ INITIAL_BACKOFF = 2
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 
 HEADERS = {
-    "User-Agent": "MarineSpeciesAnalytics/1.0 (https://github.com/marine-species-analytics; educational project)",
+    "User-Agent": UA,
     "Accept": "application/sparql-results+json",
 }
 
@@ -29,26 +31,17 @@ SELECT ?scientificName ?image WHERE {{
 """
 
 
-def commons_thumb_url(file_page_url: str, width: int = 800) -> str:
-    """Convert a Wikimedia Commons Special:FilePath URL to a direct thumbnail URL.
+def file_title_from_filepath(url: str) -> str:
+    """Commons file name from a Special:FilePath URL.
 
-    Input:  http://commons.wikimedia.org/wiki/Special:FilePath/Queen%20Angelfish.jpg
-    Output: https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Queen_Angelfish.jpg/800px-Queen_Angelfish.jpg
+    "http://commons.wikimedia.org/wiki/Special:FilePath/Queen%20Angelfish.jpg" -> "Queen Angelfish.jpg"
     """
-    # Extract filename from URL
-    filename = file_page_url.rsplit("/", 1)[-1]
-    filename = unquote(filename).replace(" ", "_")
-
-    md5 = hashlib.md5(filename.encode()).hexdigest()
-    a, ab = md5[0], md5[:2]
-
-    return (
-        f"https://upload.wikimedia.org/wikipedia/commons/thumb/{a}/{ab}/{quote(filename)}/{width}px-{quote(filename)}"
-    )
+    return unquote(url.rsplit("/", 1)[-1]).replace("_", " ")
 
 
 def _build_values_clause(names: list[str]) -> str:
-    return " ".join(f'"{name}"' for name in names)
+    escaped = (name.replace("\\", "\\\\").replace('"', '\\"') for name in names)
+    return " ".join(f'"{name}"' for name in escaped)
 
 
 async def _query_sparql_batch(
@@ -56,10 +49,9 @@ async def _query_sparql_batch(
     session: aiohttp.ClientSession,
     semaphore: asyncio.Semaphore,
 ) -> dict[str, str]:
-    """Query Wikidata for image URLs. Returns dict of species_name -> image_url."""
+    """Query Wikidata for image files. Returns dict of taxon name -> Commons file name."""
     async with semaphore:
-        values = _build_values_clause(names)
-        query = SPARQL_TEMPLATE.format(values=values)
+        query = SPARQL_TEMPLATE.format(values=_build_values_clause(names))
         url = f"{SPARQL_ENDPOINT}?query={quote(query)}"
 
         backoff = INITIAL_BACKOFF
@@ -84,34 +76,37 @@ async def _query_sparql_batch(
 
             results: dict[str, str] = {}
             for binding in data.get("results", {}).get("bindings", []):
-                sci_name = binding["scientificName"]["value"]
-                if sci_name in results:
-                    continue
+                name = binding["scientificName"]["value"]
                 raw_url = binding.get("image", {}).get("value", "")
-                if raw_url:
-                    results[sci_name] = commons_thumb_url(raw_url)
+                if raw_url and name not in results:
+                    results[name] = file_title_from_filepath(raw_url)
             return results
 
         return {}
 
 
-async def get_wikidata_images(species_names: list[str]) -> dict[str, str]:
-    """Batch-fetch image URLs from Wikidata for a list of species.
+async def get_wikidata_files(species_names: list[str]) -> dict[str, str]:
+    """Commons image file names from Wikidata, matched on the plain binomial.
 
-    Returns dict mapping species_name -> direct thumbnail URL.
+    Returns dict mapping species (as given) -> Commons file name.
     """
+    by_canonical: dict[str, list[str]] = {}
+    for species in species_names:
+        by_canonical.setdefault(canonical_name(species), []).append(species)
+    canonical = list(by_canonical)
+
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
-    all_results: dict[str, str] = {}
+    found: dict[str, str] = {}
 
     async with aiohttp.ClientSession(headers=HEADERS) as session:
-        tasks = []
-        for i in range(0, len(species_names), BATCH_SIZE):
-            batch = species_names[i : i + BATCH_SIZE]
-            tasks.append(_query_sparql_batch(batch, session, semaphore))
+        tasks = [
+            _query_sparql_batch(canonical[i : i + BATCH_SIZE], session, semaphore)
+            for i in range(0, len(canonical), BATCH_SIZE)
+        ]
+        for result in await asyncio.gather(*tasks):
+            for name, file_title in result.items():
+                for species in by_canonical.get(name, []):
+                    found[species] = file_title
 
-        batch_results = await asyncio.gather(*tasks)
-        for result in batch_results:
-            all_results.update(result)
-
-    logger.info("Wikidata: got images for %d/%d species", len(all_results), len(species_names))
-    return all_results
+    logger.info("Wikidata: images for %d/%d species", len(found), len(species_names))
+    return found

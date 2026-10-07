@@ -1,9 +1,13 @@
 import asyncio
 import logging
 import random
-from urllib.parse import quote
+import re
+from dataclasses import dataclass
+from urllib.parse import quote, unquote, urlparse
 
 import aiohttp
+
+from enrich.names import canonical_name, genus
 
 logger = logging.getLogger(__name__)
 
@@ -11,29 +15,76 @@ MAX_CONCURRENT = 10
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 2
 
-UA = "MarineSpeciesAnalytics/1.0 (https://github.com/marine-species-analytics; educational project)"
+UA = "MarineSpeciesAnalytics/1.0 (https://github.com/alex-kolmakov/divesite-species-analytics; educational project)"
 
 HEADERS = {
     "User-Agent": UA,
     "Api-User-Agent": UA,
 }
 
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
+_STUB = re.compile(r"\bis an? (?:extinct )?(?:species|subspecies) of\b", re.IGNORECASE)
 
-async def _get_species_summary(
-    scientific_name: str,
+
+# Returned instead of a page when the lookup failed (rate limit, network) rather than missed
+ERROR = "error"
+
+
+@dataclass
+class WikiPage:
+    description: str | None
+    is_stub: bool
+    # Commons file name ("Pterois volitans Manado-e edit.jpg"); credit and thumbnail come from Commons
+    file_title: str | None
+
+
+def is_genus_page(species: str, canonical_title: str) -> bool:
+    """True when Wikipedia redirected the species to its genus article.
+
+    A redirect to a common name is fine ("Acropora palmata" -> "Elkhorn coral"); a redirect to the
+    genus ("Pearsonothuria graeffei" -> "Pearsonothuria") describes a different taxon.
+    """
+    title = unquote(canonical_title).replace("_", " ").strip().lower()
+    return title == genus(species).lower()
+
+
+def is_stub(description: str) -> bool:
+    """One sentence saying only what the species is ("X is a species of sea snail in the family Y.")."""
+    sentences = [s for s in _SENTENCE_END.split(description.strip()) if s]
+    return len(sentences) <= 1 and bool(_STUB.search(description))
+
+
+def commons_file_title(image_url: str | None) -> str | None:
+    """The Commons file name behind a Wikipedia image URL, or None for a non-Commons file.
+
+    Files under /wikipedia/en/ are local uploads, usually non-free "fair use" images that can't be
+    reused, so they are skipped.
+    """
+    if not image_url:
+        return None
+    path = urlparse(image_url).path
+    if "/wikipedia/commons/" not in path:
+        return None
+    parts = path.split("/wikipedia/commons/", 1)[1].split("/")
+    if parts and parts[0] == "thumb":
+        # thumb/a/ab/<file>/<width>px-<file>
+        return unquote(parts[3]) if len(parts) >= 4 else None
+    return unquote(parts[-1]) if parts else None
+
+
+async def _get_page(
+    species: str,
     session: aiohttp.ClientSession,
     semaphore: asyncio.Semaphore,
-) -> tuple[str | None, str | None]:
-    """Fetch description and image URL from Wikipedia REST API.
+) -> WikiPage | str | None:
+    """Wikipedia summary for a species by direct lookup (a 404 is a clean miss, not a wrong match).
 
-    Uses direct page lookup by scientific name — returns 404 for no page
-    (no risk of bad search matches).
-
-    Returns (description, image_url).
+    Returns the page, None for a real miss (no page, a genus page, a disambiguation), or ERROR when
+    the lookup itself failed, so callers can keep what they already have instead of erasing it.
     """
     async with semaphore:
         backoff = INITIAL_BACKOFF
-        page_title = scientific_name.replace(" ", "_")
+        page_title = canonical_name(species).replace(" ", "_")
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(page_title)}"
 
         for attempt in range(MAX_RETRIES + 1):
@@ -42,48 +93,51 @@ async def _get_species_summary(
 
                 async with session.get(url) as resp:
                     if resp.status == 404:
-                        return None, None
+                        return None
                     if resp.status in (429, 403):
-                        logger.debug("Wikipedia rate limited for %s (attempt %d)", scientific_name, attempt + 1)
+                        logger.debug("Wikipedia rate limited for %s (attempt %d)", species, attempt + 1)
                         await asyncio.sleep(backoff + random.uniform(0, 1))
                         backoff *= 2
                         continue
                     if resp.status != 200:
-                        return None, None
+                        return ERROR
                     data = await resp.json()
 
-                description = data.get("extract")
-                image_url = data.get("originalimage", {}).get("source")
+                if data.get("type") == "disambiguation":
+                    return None
+                if is_genus_page(species, data.get("titles", {}).get("canonical", "")):
+                    return None
 
-                return description, image_url
+                description = data.get("extract") or None
+                image = (data.get("originalimage") or data.get("thumbnail") or {}).get("source")
+                return WikiPage(
+                    description=description,
+                    is_stub=bool(description) and is_stub(description),
+                    file_title=commons_file_title(image),
+                )
 
             except aiohttp.ClientError:
                 await asyncio.sleep(backoff)
                 backoff *= 2
             except Exception:
-                logger.debug("Wikipedia error for %s", scientific_name, exc_info=True)
-                return None, None
+                logger.debug("Wikipedia error for %s", species, exc_info=True)
+                return ERROR
 
-        return None, None
+        return ERROR
 
 
-async def get_wikipedia_data(
-    species_names: list[str],
-) -> dict[str, tuple[str | None, str | None]]:
-    """Fetch descriptions and images from Wikipedia REST API.
+async def get_wikipedia_pages(species_names: list[str]) -> tuple[dict[str, WikiPage], set[str]]:
+    """Wikipedia summaries for a list of species, and the species whose lookup failed.
 
-    Returns dict mapping scientific_name -> (description, image_url).
+    Missing, genus and disambiguation pages are in neither.
     """
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 
     async with aiohttp.ClientSession(headers=HEADERS) as session:
-        tasks = [_get_species_summary(name, session, semaphore) for name in species_names]
+        tasks = [_get_page(name, session, semaphore) for name in species_names]
         results = await asyncio.gather(*tasks)
 
-    found = {
-        name: (desc, img)
-        for name, (desc, img) in zip(species_names, results, strict=True)
-        if desc is not None or img is not None
-    }
-    logger.info("Wikipedia: got data for %d/%d species", len(found), len(species_names))
-    return found
+    found = {name: r for name, r in zip(species_names, results, strict=True) if isinstance(r, WikiPage)}
+    errors = {name for name, r in zip(species_names, results, strict=True) if r == ERROR}
+    logger.info("Wikipedia: pages for %d/%d species (%d lookups failed)", len(found), len(species_names), len(errors))
+    return found, errors
