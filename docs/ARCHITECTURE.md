@@ -13,8 +13,8 @@ The dbt project uses a **medallion architecture** with marine biology-themed lay
 │ gbif_occur.  │─────▶│ clustered_occur. │─────▶│   occurrences           │
 │ obis_occur.  │      │ species          │      │ monthly_species_occur.  │
 └──────────────┘      └──────────────────┘      │ divesite_species_freq.  │
-                                                │ species_divesite_summ.  │
-                                                │ divesite_species_detail │
+                                                │ divesite_species        │
+                                                │ species_summary         │
                                                 │ divesite_summary        │
                                                 └─────────────────────────┘
 ```
@@ -44,11 +44,11 @@ Denormalized tables optimized for the application's two primary queries.
 
 | Model | Description |
 |-------|-------------|
-| `near_dive_site_occurrences` | Spatial join: each occurrence matched to nearest dive site within configurable radius (`PROXIMITY_METERS`). Uses `ST_DWithin` + distance ranking. |
-| `monthly_species_occurrences` | Monthly aggregation of sightings per species per dive site. Powers temporal trend charts. |
-| `divesite_species_frequency` | Species ranked by sighting count at each dive site. Intermediate table feeding the UI models. |
-| `species_divesite_summary` | Denormalized for "Where can I find species X?" — clustered by `species` for fast single-species lookups. LEFT JOINs `species_enrichment` for common names and images. |
-| `divesite_species_detail` | Denormalized for "What lives near dive site Y?" — clustered by `dive_site` for fast single-site lookups. LEFT JOINs `species_enrichment` for descriptions and images. |
+| `near_dive_site_occurrences` | Spatial join: one row per (`occurrence_key`, `site_id`) within a configurable radius (`PROXIMITY_METERS`), with the distance. A sighting counts for every site in range, so occurrence totals come from `occurrences`, not from this table. The only coral model that reads `occurrences`. |
+| `monthly_species_occurrences` | Sightings per site, species and calendar month (`month_start`, `year`, `month` 1–12). Powers temporal trend charts. |
+| `divesite_species_frequency` | Per (`site_id`, species): records, distinct days seen (all time and last `RECENT_YEARS`), first/last seen, months seen, and `best_place_score` (days seen, each weighted by recency with a `BEST_PLACE_HALF_LIFE_YEARS` half-life). Ranks species per site and sites per species. |
+| `divesite_species` | App table: `divesite_species_frequency` plus the per-site invasive label. Narrow on purpose (no text). Answers "what lives at site Y" and "best places to see species X". |
+| `species_summary` | App table: one row per species found at a site, with name, description, image, global IUCN category and how many sites it is at. LEFT JOINs `species_enrichment`. |
 | `divesite_invasive_species` | Species invasive at each dive site: WRiMS lists it as Invasive / Of concern in a sea area within 5 km. Invasiveness is per place. |
 | `divesite_summary` | One row per dive site with species counts and coordinates (~13,300 rows). Loaded entirely on app startup. |
 
@@ -188,9 +188,11 @@ The application is a **single-container deployment** with no external database s
 
 | Table | Purpose | Size |
 |-------|---------|------|
-| `species_divesite_summary` | Species → dive site mapping for search | Clustered by species |
-| `divesite_species_detail` | Dive site → species list for explorer | Clustered by dive_site |
-| `divesite_summary` | Map markers with species counts | ~13,300 rows |
+| `divesite_summary` | Map markers with species counts | ~13,600 rows |
+| `species_summary` | Species search and species pages | ~65,000 rows |
+| `divesite_species` | Site ↔ species pairs with counts, best-place metrics, per-site invasiveness | ~4M rows, ~67 MB parquet |
+
+Each table is exported to its own folder (`app-export/<table>/part-*.parquet`; `bq extract` splits large tables). The app loads them into a compressed in-memory DuckDB catalog with a 300 MB limit: ~80 MB resident, ~360 MB peak while loading.
 
 ---
 
