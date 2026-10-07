@@ -13,11 +13,11 @@ class Config:
     port: int = field(default_factory=lambda: int(os.environ.get("PORT", "8080")))
     local_data_dir: str = field(default_factory=lambda: os.environ.get("LOCAL_DATA_DIR", "data"))
 
-    # The three tables the UI needs
+    # The three tables the UI needs: sites, species, and the (site, species) pairs between them
     tables: tuple[str, ...] = (
-        "species_divesite_summary",
-        "divesite_species_detail",
         "divesite_summary",
+        "species_summary",
+        "divesite_species",
     )
 
     @property
