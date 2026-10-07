@@ -1,30 +1,30 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', cluster_by=['site_id']) }}
+
+-- One row per (site_id, species, calendar month). `month` alone folds every year together
+-- (seasonality); `month_start` keeps the year (trend).
 
 WITH counts AS (
     SELECT
-        dive_site,
+        site_id,
         species,
-        event_date,
-        FORMAT_DATE('%b', event_date) AS month,
+        DATE_TRUNC(DATE(event_date), MONTH) AS month_start,
         COUNT(*) AS sighting_count
-    FROM {{ ref('near_dive_site_occurrences') }} AS occ
-    GROUP BY 
-        dive_site,
+    FROM {{ ref('near_dive_site_occurrences') }}
+    GROUP BY
+        site_id,
         species,
-        event_date,
-        month
+        month_start
 )
+
 SELECT
-    counts.dive_site,
+    counts.site_id,
+    divesites.title AS dive_site,
     counts.species,
     divesites.geography,
-    counts.month,
-    counts.event_date,
+    counts.month_start,
+    EXTRACT(YEAR FROM counts.month_start)  AS year,
+    EXTRACT(MONTH FROM counts.month_start) AS month,
     counts.sighting_count
 FROM counts
 INNER JOIN {{ ref('divesites') }} AS divesites
-    ON counts.dive_site = divesites.title
-ORDER BY
-    counts.dive_site,
-    counts.species,
-    counts.month
+    ON counts.site_id = divesites.site_id
