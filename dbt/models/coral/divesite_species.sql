@@ -14,10 +14,20 @@ SELECT
     freq.last_seen,
     freq.months_seen,
     freq.best_place_score,
-    freq.frequency_rank,
+    -- Most recorded at the site among the species the site list shows (birds excluded, NULL for them)
+    IF(
+        sp.taxon_class = 'Aves',
+        NULL,
+        RANK() OVER (PARTITION BY freq.site_id, sp.taxon_class = 'Aves' ORDER BY freq.sighting_count DESC)
+    ) AS frequency_rank,
     freq.best_place_rank,
     inv.invasiveness,
-    COALESCE(inv.invasiveness = 'invasive', FALSE) AS is_invasive_here
+    COALESCE(inv.invasiveness = 'invasive', FALSE) AS is_invasive_here,
+    -- Seabirds are in WoRMS and in the records, but not what a diver sees: hidden from site lists
+    -- and site counts, still on the bird's own species page
+    COALESCE(sp.taxon_class = 'Aves', FALSE) AS is_bird
 FROM {{ ref('divesite_species_frequency') }} AS freq
+INNER JOIN {{ ref('species') }} AS sp
+    ON freq.species = sp.species
 LEFT JOIN {{ ref('divesite_invasive_species') }} AS inv
     ON freq.site_id = inv.site_id AND freq.species = inv.species
