@@ -338,7 +338,7 @@ resource "google_cloud_run_v2_service" "app" {
 
       resources {
         limits = {
-          cpu    = "1"
+          cpu = "1"
           # DuckDB peaks at ~360 MB loading the app tables, plus Python and the downloaded parquet
           memory = "1Gi"
         }
