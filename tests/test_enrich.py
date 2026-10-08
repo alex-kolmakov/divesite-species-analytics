@@ -292,6 +292,34 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
         assert failed.attempted_at is None  # stays eligible for the next run
 
 
+def test_batch_without_occurrence_photos_still_records_the_species():
+    batch = [WorkItem("No wiki image", has_common_name=True)]
+
+    async def match(names):
+        return {"No wiki image": 1}
+
+    async def nothing(_):
+        return {}
+
+    async def wikipedia(names):
+        return {"No wiki image": WikiPage("A fish. It swims.", False, None)}, set()
+
+    async def occurrences(keys):
+        raise AssertionError("occurrence photos were switched off")
+
+    with (
+        patch("enrich.__main__.match_species", side_effect=match),
+        patch("enrich.__main__.get_common_names", side_effect=nothing),
+        patch("enrich.__main__.get_wikipedia_pages", side_effect=wikipedia),
+        patch("enrich.__main__.get_wikidata_files", side_effect=nothing),
+        patch("enrich.__main__.get_occurrence_images", side_effect=occurrences),
+    ):
+        [result] = asyncio.run(enrich_batch(batch, occurrence_photos=False))
+
+    assert (result.description, result.image_url) == ("A fish. It swims.", None)
+    assert result.attempted_at is not None
+
+
 def test_failed_commons_lookup_keeps_stored_image():
     batch = [WorkItem("Commons failed", has_common_name=True)]
 

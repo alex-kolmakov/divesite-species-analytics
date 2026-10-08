@@ -157,7 +157,7 @@ def _set_image(result: Result, image: ImageInfo | OccurrenceImage, source: str) 
     result.image_license_url = image.license_url
 
 
-async def enrich_batch(batch: list[WorkItem]) -> list[Result]:
+async def enrich_batch(batch: list[WorkItem], *, occurrence_photos: bool = True) -> list[Result]:
     """Look every species in the batch up in all sources; see the module docstring for the order."""
     names = [w.species for w in batch]
     now = datetime.now(UTC)
@@ -198,7 +198,7 @@ async def enrich_batch(batch: list[WorkItem]) -> list[Result]:
     still_missing = {
         s: keys[s] for s, r in results.items() if r.refresh_text_and_image and not r.image_url and s in keys
     }
-    if still_missing:
+    if still_missing and occurrence_photos:
         images, occurrence_failed = await get_occurrence_images(still_missing)
         for species, image in images.items():
             _set_image(results[species], image, "gbif_occurrence")
@@ -295,6 +295,11 @@ def main() -> int:
     parser.add_argument("--new-only", action="store_true", help="Only species with no enrichment row yet")
     parser.add_argument("--limit", type=int, help="Process at most this many species (most widespread first)")
     parser.add_argument("--dry-run", action="store_true", help="Look species up but write nothing to BigQuery")
+    parser.add_argument(
+        "--no-occurrence-photos",
+        action="store_true",
+        help="Skip the GBIF occurrence photo fallback (its search API throttles long runs)",
+    )
     args = parser.parse_args()
 
     config = EnrichConfig.from_env()
@@ -313,7 +318,7 @@ def main() -> int:
     totals: list[Result] = []
     for start in range(0, len(work), config.batch_size):
         batch = work[start : start + config.batch_size]
-        results = asyncio.run(enrich_batch(batch))
+        results = asyncio.run(enrich_batch(batch, occurrence_photos=not args.no_occurrence_photos))
         pending.extend(results)
         totals.extend(results)
         logger.info("Batch %d-%d of %d: %s", start + 1, start + len(batch), len(work), summarize(results))
