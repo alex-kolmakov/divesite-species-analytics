@@ -88,3 +88,12 @@ def test_images_come_with_credit_and_license(test_client):
     assert species["image_page_url"].startswith("https://commons.wikimedia.org/")
     site_row = test_client.get("/api/divesites/ssi:1/species").json()[0]
     assert site_row["image_license"] == "CC BY 2.5"
+
+
+def test_species_list_without_a_search_term_leaves_birds_out(test_client):
+    listed = {s["species"] for s in test_client.get("/api/species/search").json()}
+    assert "Pterois volitans" in listed
+    assert "Pandion haliaetus" not in listed
+    # A bird is still found by name
+    found = test_client.get("/api/species/search?q=osprey").json()
+    assert [s["species"] for s in found] == ["Pandion haliaetus"]

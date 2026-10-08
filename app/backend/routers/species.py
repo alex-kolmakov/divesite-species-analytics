@@ -22,13 +22,19 @@ def search_species(
     type: Literal["all", "endangered", "invasive", "normal"] = Query("all"),
     limit: int = Query(20, ge=1, le=100),
 ) -> list[dict]:
-    """Search species by scientific or common name. `type` uses the species-level label."""
+    """Search species by scientific or common name. `type` uses the species-level label.
+
+    With no search term this is the list of most widely seen species, without the ones a diver
+    doesn't meet underwater: seabirds are recorded near almost every site and would fill the list.
+    """
     conditions = ["1=1"]
     params: list[object] = []
 
     if q:
         conditions.append("(species ILIKE ? OR common_name ILIKE ?)")
         params.extend([f"%{q}%", f"%{q}%"])
+    else:
+        conditions.append("NOT is_above_water")
 
     if type != "all":
         conditions.append("species_type = ?")
