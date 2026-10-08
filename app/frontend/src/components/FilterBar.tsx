@@ -6,10 +6,10 @@ interface Props {
 }
 
 const FILTERS = [
-    { value: 'all', label: 'All', icon: '' },
-    { value: 'endangered', label: '⚠️', title: 'Endangered' },
-    { value: 'invasive', label: '🦠', title: 'Invasive' },
-    { value: 'normal', label: 'Normal', icon: '' },
+    { value: 'all', label: 'All' },
+    { value: 'endangered', label: 'Endangered' },
+    { value: 'invasive', label: 'Invasive here' },
+    { value: 'normal', label: 'Other' },
 ];
 
 export default function FilterBar({ active, onChange }: Props) {
@@ -20,7 +20,6 @@ export default function FilterBar({ active, onChange }: Props) {
                     key={f.value}
                     className={`filter-chip${active === f.value ? ' active' : ''}`}
                     onClick={() => onChange(f.value)}
-                    title={'title' in f ? f.title : f.label}
                 >
                     {f.label}
                 </button>

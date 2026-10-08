@@ -1,54 +1,54 @@
 import type { Species, DiveSiteSpecies } from '../api/client';
+import { creditText } from '../credit';
+import { displayName, invasiveHereLabel, iucnLabel, year } from '../labels';
 import './SpeciesCard.css';
 
 interface Props {
     species: Species | DiveSiteSpecies;
-    onClick?: () => void;
-    onDetail?: () => void;
-    selected?: boolean;
+    onClick: () => void;
 }
 
-export default function SpeciesCard({ species, onClick, onDetail, selected }: Props) {
+export default function SpeciesCard({ species, onClick }: Props) {
+    // Site lists say whether it is invasive at that site; search results whether it is anywhere
+    const atSite = 'invasiveness' in species;
+    const invasive = atSite ? invasiveHereLabel(species.invasiveness) : species.is_invasive ? 'Invasive' : null;
+    const name = displayName(species.common_name, species.species);
     return (
-        <div
-            className={`species-card${selected ? ' selected' : ''}`}
-            onClick={onClick}
-            role={onClick ? 'button' : undefined}
-            tabIndex={onClick ? 0 : undefined}
-            onKeyDown={(e) => { if (onClick && e.key === 'Enter') onClick(); }}
-        >
-            {species.image_url && (
+        <button type="button" className="species-card" onClick={onClick}>
+            {species.image_url ? (
                 <img
                     className="species-card__img"
                     src={species.image_url}
-                    alt={species.species}
+                    alt=""
+                    title={creditText(species)}
                     loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
                 />
+            ) : (
+                <span className="species-card__img species-card__img--none" aria-hidden="true" />
             )}
-            <div className="species-card__body">
-                <h3 className="species-card__name">{species.common_name || species.species}</h3>
-                {species.common_name && (
-                    <p className="species-card__scientific">{species.species}</p>
-                )}
-                <div className="species-card__badges">
-                    {species.is_endangered && <span className="badge badge--endangered">Endangered</span>}
-                    {species.is_invasive && <span className="badge badge--invasive">Invasive</span>}
-                    {'sighting_count' in species && (
-                        <span className="badge badge--count">{species.sighting_count} sightings</span>
+            <span className="species-card__body">
+                <span className="species-card__name">{name}</span>
+                {name !== species.species && <span className="species-card__scientific">{species.species}</span>}
+                <span className="species-card__meta">
+                    {atSite ? (
+                        <>
+                            {species.sighting_count.toLocaleString()} {species.sighting_count === 1 ? 'sighting' : 'sightings'}
+                            {species.last_seen && ` · last ${year(species.last_seen)}`}
+                        </>
+                    ) : (
+                        <>{species.total_sites.toLocaleString()} dive sites</>
                     )}
-                </div>
-            </div>
-            {onDetail && (
-                <button
-                    className="species-card__detail-btn"
-                    onClick={e => { e.stopPropagation(); onDetail(); }}
-                    aria-label="View species details"
-                    title="View details"
-                >
-                    →
-                </button>
-            )}
-        </div>
+                </span>
+                {(species.is_endangered || invasive) && (
+                    <span className="species-card__badges">
+                        {species.is_endangered && (
+                            <span className="badge badge--endangered">{iucnLabel(species.iucn_category) ?? 'Endangered'}</span>
+                        )}
+                        {invasive && <span className="badge badge--invasive">{invasive}</span>}
+                    </span>
+                )}
+            </span>
+        </button>
     );
 }

@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { MapContainer, useMap } from 'react-leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import { api } from '../api/client';
-import type { SpeciesDetail, SpeciesSite } from '../api/client';
+import Basemap from './Basemap';
+import type { SpeciesSite } from '../api/client';
+import { useAsync } from '../hooks/useAsync';
+import { displayName, speciesPath, year } from '../labels';
+import './SpeciesPanel.css';
 import HeatmapLayer from './HeatmapLayer';
+import ImageCredit from './ImageCredit';
 import './SpeciesModal.css';
+
+const NO_SITES: SpeciesSite[] = [];
 
 interface Props {
     speciesName: string;
@@ -20,25 +28,12 @@ function AutoFit({ bounds }: { bounds: LatLngBoundsExpression | null }) {
 }
 
 export default function SpeciesModal({ speciesName, onClose }: Props) {
-    const [detail, setDetail] = useState<SpeciesDetail | null>(null);
-    const [sites, setSites] = useState<SpeciesSite[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-
-    useEffect(() => {
-        setLoading(true);
-        setError(false);
-        Promise.all([
-            api.speciesDetail(speciesName),
-            api.speciesSites(speciesName),
-        ]).then(([d, s]) => {
-            setDetail(d);
-            setSites(s);
-        }).catch((err) => {
-            console.error('Failed to load species detail:', err);
-            setError(true);
-        }).finally(() => setLoading(false));
-    }, [speciesName]);
+    const detailFor = useAsync(api.speciesDetail, [speciesName]);
+    const sitesFor = useAsync(api.speciesSites, [speciesName]);
+    const detail = detailFor.data;
+    const sites = sitesFor.data ?? NO_SITES;
+    const loading = detailFor.loading || sitesFor.loading;
+    const error = detailFor.error || sitesFor.error;
 
     // Close on Escape
     useEffect(() => {
@@ -72,23 +67,22 @@ export default function SpeciesModal({ speciesName, onClose }: Props) {
 
                 {!loading && error && <p className="modal-loading">Failed to load — try again</p>}
 
-                {!loading && !error && !detail && <p className="modal-loading">Species not found</p>}
-
-                {!loading && !error && detail && (
+                                {!loading && !error && detail && (
                     <>
                         {detail.image_url && (
                             <div className="modal-image-wrapper">
                                 <img
                                     src={detail.image_url}
-                                    alt={detail.common_name || detail.species}
+                                    alt={displayName(detail.common_name, detail.species)}
                                     className="modal-image"
                                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             </div>
                         )}
                         <div className="modal-body">
+                            <ImageCredit image={detail} />
                             <h2 className="modal-title">
-                                {detail.common_name || detail.species}
+                                {displayName(detail.common_name, detail.species)}
                             </h2>
                             {detail.common_name && (
                                 <p className="modal-scientific">{detail.species}</p>
@@ -96,27 +90,31 @@ export default function SpeciesModal({ speciesName, onClose }: Props) {
 
                             <div className="modal-badges">
                                 {detail.is_endangered && (
-                                    <span className="badge badge--endangered">⚠ Endangered</span>
+                                    <span className="badge badge--endangered">Endangered</span>
                                 )}
                                 {detail.is_invasive && (
-                                    <span className="badge badge--invasive">⊘ Invasive</span>
+                                    <span className="badge badge--invasive">Invasive</span>
                                 )}
                             </div>
 
-                            <div className="modal-stats">
-                                <div className="modal-stat">
-                                    <span className="modal-stat__value">{detail.total_sightings.toLocaleString()}</span>
-                                    <span className="modal-stat__label">Sightings</span>
+                            <dl className="stats">
+                                <div>
+                                    <dt>Dive sites</dt>
+                                    <dd>{detail.total_sites.toLocaleString()}</dd>
                                 </div>
-                                <div className="modal-stat">
-                                    <span className="modal-stat__value">{detail.total_sites.toLocaleString()}</span>
-                                    <span className="modal-stat__label">Dive Sites</span>
+                                <div>
+                                    <dt>Seen recently at</dt>
+                                    <dd>{detail.recent_sites.toLocaleString()}</dd>
                                 </div>
-                            </div>
+                                <div>
+                                    <dt>Last seen</dt>
+                                    <dd>{year(detail.last_seen) ?? '–'}</dd>
+                                </div>
+                            </dl>
 
                             {sites.length > 0 && (
                                 <div className="modal-map-section">
-                                    <h3>Sighting Locations</h3>
+                                    <h3>Where it is seen</h3>
                                     <div className="modal-map-container">
                                         <MapContainer
                                             center={[20, 0]}
@@ -125,9 +123,7 @@ export default function SpeciesModal({ speciesName, onClose }: Props) {
                                             zoomControl={false}
                                             attributionControl={false}
                                         >
-                                            <TileLayer
-                                                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                            />
+                                            <Basemap />
                                             <AutoFit bounds={bounds} />
                                             <HeatmapLayer
                                                 points={heatPoints}
@@ -146,6 +142,10 @@ export default function SpeciesModal({ speciesName, onClose }: Props) {
                                     <p>{detail.description}</p>
                                 </div>
                             )}
+
+                            <Link className="modal-link" to={speciesPath(detail.species)}>
+                                Best places to see it →
+                            </Link>
                         </div>
                     </>
                 )}

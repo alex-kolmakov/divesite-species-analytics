@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { CircleMarker, Popup, useMap } from 'react-leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import { api } from '../api/client';
-import type { Species, SpeciesSite } from '../api/client';
+import { useAsync, useDebounced } from '../hooks/useAsync';
+import { siteName, sitePath, speciesPath } from '../labels';
 import SpeciesCard from '../components/SpeciesCard';
-import SpeciesModal from '../components/SpeciesModal';
+import SpeciesPanel from '../components/SpeciesPanel';
 import HeatmapLayer from '../components/HeatmapLayer';
+import WorldMap from '../components/WorldMap';
 import './SpeciesSearch.css';
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
@@ -16,42 +19,38 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
     return null;
 }
 
+const searchSpecies = (q: string) => api.searchSpecies(q, 'all');
+
+// 1 sighting → 3.5 px, 1,000 → 8 px: a busy site stands out without burying its neighbours
+const markerRadius = (sightings: number) => Math.min(9, 3 + Math.log10(sightings + 1) * 1.7);
+
+/** `/` is the search; `/species/:name` shows one species and where to see it. `?q=` keeps the search. */
 export default function SpeciesSearch() {
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Species[]>([]);
-    const [selected, setSelected] = useState<Species | null>(null);
-    const [sites, setSites] = useState<SpeciesSite[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [modalSpecies, setModalSpecies] = useState<string | null>(null);
+    const { name } = useParams();
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const [query, setQuery] = useState(params.get('q') ?? '');
     const [showHeatmap, setShowHeatmap] = useState(false);
-    const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    const search = useCallback((q: string) => {
-        if (q.length < 2) { setResults([]); return; }
-        setLoading(true);
-        api.searchSpecies(q, 'all').then(setResults).finally(() => setLoading(false));
-    }, []);
+    // Under two letters the list is the most widely seen species
+    const term = useDebounced(query.trim().length >= 2 ? query.trim() : '', 300);
+    const results = useAsync(searchSpecies, [term]);
+    const detail = useAsync(api.speciesDetail, name ? [name] : null);
+    const sitesFor = useAsync(api.speciesSites, name ? [name] : null);
+    const sites = sitesFor.data;
 
-    useEffect(() => {
-        clearTimeout(debounce.current);
-        debounce.current = setTimeout(() => search(query), 300);
-        return () => clearTimeout(debounce.current);
-    }, [query, search]);
-
-    const selectSpecies = (sp: Species) => {
-        setSelected(sp);
-        api.speciesSites(sp.species).then(setSites);
+    const search = query ? `?q=${encodeURIComponent(query)}` : '';
+    const typeQuery = (q: string) => {
+        setQuery(q);
+        navigate({ pathname: '/', search: q ? `?q=${encodeURIComponent(q)}` : '' }, { replace: true });
     };
 
-    const bounds: LatLngBoundsExpression | null = sites.length
+    const bounds: LatLngBoundsExpression | null = sites?.length
         ? sites.map(s => [s.latitude, s.longitude] as [number, number])
         : null;
 
-    const maxSightings = sites.length
-        ? Math.max(...sites.map(s => s.sighting_count))
-        : 1;
-
-    const heatPoints: [number, number, number][] = sites.map(s => [
+    const maxSightings = sites?.length ? Math.max(...sites.map(s => s.sighting_count)) : 1;
+    const heatPoints: [number, number, number][] = (sites ?? []).map(s => [
         s.latitude,
         s.longitude,
         s.sighting_count / maxSightings,
@@ -60,81 +59,78 @@ export default function SpeciesSearch() {
     return (
         <div className="species-search">
             <aside className="species-search__sidebar">
-                <h1 className="page-title">🔍 Species Search</h1>
                 <input
                     className="search-input"
                     type="search"
-                    placeholder="Search by name…"
+                    placeholder="Search species by name…"
+                    aria-label="Search species by name"
                     value={query}
-                    onChange={e => setQuery(e.target.value)}
-                    autoFocus
+                    onChange={e => typeQuery(e.target.value)}
+                    autoFocus={!name}
                 />
 
-                <div className="species-list">
-                    {loading && <p className="hint">Searching…</p>}
-                    {!loading && query.length >= 2 && results.length === 0 && (
-                        <p className="hint">No species found</p>
-                    )}
-                    {results.map(sp => (
-                        <SpeciesCard
-                            key={sp.species}
-                            species={sp}
-                            selected={selected?.species === sp.species}
-                            onClick={() => selectSpecies(sp)}
-                            onDetail={() => setModalSpecies(sp.species)}
-                        />
-                    ))}
-                </div>
+                {name ? (
+                    <div className="species-list">
+                        <Link className="back-link" to={{ pathname: '/', search }}>
+                            ← {query ? 'Back to results' : 'All species'}
+                        </Link>
+                        {(detail.loading || sitesFor.loading) && <p className="hint">Loading…</p>}
+                        {detail.error && <p className="hint">Species not found</p>}
+                        {detail.data && sites && <SpeciesPanel detail={detail.data} sites={sites} />}
+                    </div>
+                ) : (
+                    <div className="species-list">
+                        <p className="list-label">{term ? `Results for “${term}”` : 'Most widely seen'}</p>
+                        {results.loading && !results.data && <p className="hint">Searching…</p>}
+                        {results.error && <p className="hint">Search failed — try again</p>}
+                        {results.data?.length === 0 && <p className="hint">No species found</p>}
+                        {results.data?.map(sp => (
+                            <SpeciesCard
+                                key={sp.species}
+                                species={sp}
+                                onClick={() => navigate({ pathname: speciesPath(sp.species), search })}
+                            />
+                        ))}
+                    </div>
+                )}
             </aside>
 
             <section className="species-search__map">
-                <MapContainer center={[20, 0]} zoom={2} className="map">
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
-                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    />
+                <WorldMap>
                     <FitBounds bounds={bounds} />
                     {showHeatmap ? (
                         <HeatmapLayer points={heatPoints} radius={30} blur={20} max={1} />
                     ) : (
-                        sites.map(s => (
+                        sites?.map(s => (
                             <CircleMarker
-                                key={s.dive_site}
+                                key={s.site_id}
                                 center={[s.latitude, s.longitude]}
-                                radius={Math.max(5, Math.min(18, Math.sqrt(s.sighting_count) * 2))}
-                                pathOptions={{ color: '#06d6a0', fillColor: '#06d6a0', fillOpacity: 0.6 }}
+                                radius={markerRadius(s.sighting_count)}
+                                pathOptions={{ color: '#06d6a0', weight: 1, fillColor: '#06d6a0', fillOpacity: 0.4 }}
                             >
                                 <Popup>
-                                    <strong>{s.dive_site}</strong><br />
-                                    {s.sighting_count} sightings
+                                    <Link to={sitePath(s.site_id)}><strong>{siteName(s.dive_site)}</strong></Link><br />
+                                    {s.sighting_count.toLocaleString()} sightings
                                 </Popup>
                             </CircleMarker>
                         ))
                     )}
-                </MapContainer>
+                </WorldMap>
 
-                {selected && sites.length > 0 && (
+                {!name && <div className="map-hint">Pick a species to see where divers find it</div>}
+
+                {sites && sites.length > 0 && (
                     <div className="map-controls">
                         <div className="map-stats">
-                            {sites.length} dive sites · {sites.reduce((a, s) => a + s.sighting_count, 0).toLocaleString()} sightings
+                            {sites.length.toLocaleString()} dive sites · {sites.reduce((a, s) => a + s.sighting_count, 0).toLocaleString()} sightings
                         </div>
-                        <button
-                            className={`map-toggle ${showHeatmap ? 'active' : ''}`}
-                            onClick={() => setShowHeatmap(h => !h)}
-                            title={showHeatmap ? 'Show markers' : 'Show heatmap'}
-                        >
-                            {showHeatmap ? '📍 Markers' : '🔥 Heatmap'}
-                        </button>
+                        <div className="map-switch" role="group" aria-label="Map style">
+                            <button className={showHeatmap ? '' : 'active'} onClick={() => setShowHeatmap(false)}>Sites</button>
+                            <button className={showHeatmap ? 'active' : ''} onClick={() => setShowHeatmap(true)}>Density</button>
+                        </div>
                     </div>
                 )}
             </section>
-
-            {modalSpecies && (
-                <SpeciesModal
-                    speciesName={modalSpecies}
-                    onClose={() => setModalSpecies(null)}
-                />
-            )}
         </div>
     );
 }

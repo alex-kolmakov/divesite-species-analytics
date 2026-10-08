@@ -1,0 +1,23 @@
+.month-strip {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.month-strip i {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: transparent;
+    font-size: .5rem;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 11px;
+    text-align: center;
+}
+
+.month-strip i.on {
+    border-color: transparent;
+    background: rgba(6, 214, 160, .28);
+    color: var(--accent);
+}

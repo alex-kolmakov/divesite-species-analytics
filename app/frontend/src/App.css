@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -84,4 +85,20 @@
 .main {
   flex: 1;
   overflow: hidden;
+}
+@media (max-width: 760px) {
+  .topnav {
+    gap: .75rem;
+    padding: 0 .9rem;
+    height: 52px;
+  }
+
+  .topnav__wordmark {
+    display: none;
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
 }
