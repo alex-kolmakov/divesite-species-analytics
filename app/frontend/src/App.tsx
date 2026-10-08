@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import SpeciesSearch from './pages/SpeciesSearch';
 import DiveSiteExplorer from './pages/DiveSiteExplorer';
+import Logo from './components/Logo';
 import './App.css';
 
 function TopNav() {
@@ -8,9 +9,12 @@ function TopNav() {
   return (
     <nav className="topnav">
       <div className="topnav__brand">
-        <span className="topnav__logo">🤿</span>
-        <span className="topnav__wordmark">
-          <span className="topnav__wordmark-accent">Divesite</span> Discovery
+        <Logo className="topnav__logo" />
+        <span className="topnav__wordmark" aria-label="Dive Diversity">
+          <span className="topnav__wordmark-top">DIVE</span>
+          <span className="topnav__wordmark-bottom">
+            <span className="topnav__wordmark-accent">DIVE</span>RSITY
+          </span>
         </span>
       </div>
       <div className="topnav__links">

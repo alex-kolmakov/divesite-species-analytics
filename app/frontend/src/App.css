@@ -13,7 +13,7 @@
   align-items: center;
   gap: 2rem;
   padding: 0 2rem;
-  height: 64px;
+  height: 72px;
   background: linear-gradient(135deg, #0a0f1e 0%, #131b2e 50%, #0f172a 100%);
   border-bottom: 1px solid rgba(51, 65, 85, .6);
   flex-shrink: 0;
@@ -30,24 +30,35 @@
 }
 
 .topnav__logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #06d6a0 0%, #048a6a 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .85rem;
-  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   flex-shrink: 0;
   box-shadow: 0 0 12px rgba(6, 214, 160, .25);
 }
 
+/* DIVE above the waterline, DIVERSITY fading below it */
 .topnav__wordmark {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -.01em;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  line-height: 1;
   color: var(--text);
+}
+
+.topnav__wordmark-top {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--accent);
+}
+
+.topnav__wordmark-bottom {
+  padding-top: 3px;
+  opacity: .6;
+  -webkit-mask-image: linear-gradient(#000 20%, transparent 130%);
+  mask-image: linear-gradient(#000 20%, transparent 130%);
 }
 
 .topnav__wordmark-accent {
@@ -95,6 +106,11 @@
 
   .topnav__wordmark {
     display: none;
+  }
+
+  .topnav__logo {
+    width: 30px;
+    height: 30px;
   }
 
   .nav-link {
