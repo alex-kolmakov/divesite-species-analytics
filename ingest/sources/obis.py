@@ -40,7 +40,8 @@ OBIS_COLUMNS = [
     "interpreted.basisOfRecord AS basisOfRecord",
     "absence",
     "dropped",
-    "array_to_string(flags, ',') AS flags",
+    # NULLIF: newer DuckDB turns an empty flag list into '' rather than NULL
+    "NULLIF(array_to_string(flags, ','), '') AS flags",
 ]
 
 OBIS_WHERE = (
