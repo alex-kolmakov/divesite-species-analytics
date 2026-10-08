@@ -7,12 +7,14 @@ Run with:
 """
 
 import asyncio
+import zipfile
 from unittest.mock import patch
 
 import pytest
 from enrich.__main__ import Result, WorkItem, enrich_batch, merge_query, work_list_query
 from enrich.commons import ImageInfo, parse_imageinfo, plain_text
 from enrich.gbif import OccurrenceImage, Pacer, display_url, pick_occurrence_image
+from enrich.gbif_download import download_request, photo_merge_query, read_photos
 from enrich.licenses import is_allowed, normalise_license
 from enrich.names import canonical_name, genus
 from enrich.wikidata import file_title_from_filepath
@@ -134,6 +136,12 @@ def test_plain_text_strips_html():
 # ─── GBIF occurrence photos ───────────────────────────────────────────────────
 
 
+def test_gbif_license_names_are_recognised():
+    assert normalise_license("CC0_1_0") == "CC0"
+    assert normalise_license("CC_BY_NC_4_0") == "CC BY-NC 4.0"
+    assert normalise_license("UNSPECIFIED") is None
+
+
 def test_pick_occurrence_image_skips_disallowed_and_non_images():
     results = [
         {
@@ -221,6 +229,69 @@ def test_pacer_spaces_requests_and_holds_everyone_after_a_slow_down():
     spaced, held = asyncio.run(run())
     assert spaced >= 0.06  # four starts, 0.02 s apart
     assert held >= spaced + 0.1
+
+
+# ─── GBIF download ────────────────────────────────────────────────────────────
+
+
+def _archive(path, occurrences, media):
+    def tsv(header, rows):
+        return "\n".join("\t".join(r) for r in [header, *rows]) + "\n"
+
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(
+            "occurrence.txt",
+            tsv(
+                ["gbifID", "basisOfRecord", "taxonKey", "acceptedTaxonKey", "speciesKey", "license", "recordedBy"],
+                occurrences,
+            ),
+        )
+        z.writestr("multimedia.txt", tsv(["gbifID", "type", "format", "identifier", "creator", "license"], media))
+    return path
+
+
+def test_download_archive_prefers_field_observations_and_allowed_licenses(tmp_path):
+    by = "http://creativecommons.org/licenses/by/4.0/"
+    archive = _archive(
+        tmp_path / "dl.zip",
+        [
+            ["1", "PRESERVED_SPECIMEN", "10", "10", "10", "CC0_1_0", "Museum"],
+            ["2", "HUMAN_OBSERVATION", "10", "10", "10", "CC_BY_NC_4_0", "Diver"],
+            ["3", "HUMAN_OBSERVATION", "21", "20", "20", "CC_BY_4_0", "Ana"],  # recorded under a synonym
+            ["4", "PRESERVED_SPECIMEN", "30", "30", "30", "CC0_1_0", "Museum"],
+            ["5", "HUMAN_OBSERVATION", "99", "99", "99", "CC0_1_0", "Someone"],  # not a species we asked for
+        ],
+        [
+            ["1", "StillImage", "image/jpeg", "https://museum/1.jpg", "", by],
+            ["2", "StillImage", "image/jpeg", "https://inat/2.jpg", "Diver D", by],
+            ["3", "StillImage", "image/jpeg", "https://inat/3.jpg", "", ""],  # falls back to the record's license
+            ["4", "StillImage", "image/jpeg", "https://museum/4.jpg", "", "Usage Conditions Apply"],
+            ["5", "StillImage", "image/jpeg", "https://inat/5.jpg", "", by],
+        ],
+    )
+    photos = read_photos(archive, {10: ["Fish one"], 20: ["Fish two"], 30: ["Fish three"]})
+
+    assert set(photos) == {"Fish one", "Fish two"}  # the only photo of Fish three has no usable license
+    one = photos["Fish one"]
+    assert (one.image_url, one.credit, one.license) == ("https://inat/2.jpg", "Diver D", "CC BY 4.0")
+    assert one.page_url == "https://www.gbif.org/occurrence/2"
+    two = photos["Fish two"]
+    assert (two.image_url, two.credit, two.license) == ("https://inat/3.jpg", "Ana", "CC BY 4.0")
+
+
+def test_download_request_asks_for_still_images_of_the_taxa():
+    body = download_request("someone", [7, 3, 7])
+    taxa, media = body["predicate"]["predicates"]
+    assert (body["creator"], body["format"]) == ("someone", "DWCA")
+    assert taxa == {"type": "in", "key": "TAXON_KEY", "values": ["3", "7"]}
+    assert media == {"type": "equals", "key": "MEDIA_TYPE", "value": "StillImage"}
+
+
+def test_photo_merge_never_replaces_an_image():
+    q = photo_merge_query("p.d.species_enrichment", "p.d.staging")
+    assert "WHEN MATCHED AND t.image_url IS NULL THEN UPDATE SET" in q
+    assert "image_source = 'gbif_occurrence'" in q
+    assert "NOT MATCHED" not in q
 
 
 # ─── a whole batch, every source patched ──────────────────────────────────────

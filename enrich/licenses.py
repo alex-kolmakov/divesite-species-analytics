@@ -12,6 +12,8 @@ ALLOWED = {"CC0", "Public domain", "CC BY", "CC BY-SA", "CC BY-NC", "CC BY-NC-SA
 
 _CC_URL = re.compile(r"creativecommons\.org/licenses/([a-z-]+)/([\d.]+)?", re.IGNORECASE)
 _CC_TEXT = re.compile(r"^\s*cc[\s-]*(by(?:[\s-]*(?:nc|sa|nd))*)(?:[\s-]*([\d.]+))?", re.IGNORECASE)
+# GBIF's own names for the three licenses an occurrence record can have (download archives use them)
+_GBIF_NAMES = {"CC0_1_0": "CC0", "CC_BY_4_0": "CC BY 4.0", "CC_BY_NC_4_0": "CC BY-NC 4.0"}
 
 
 def normalise_license(value: str | None) -> str | None:
@@ -19,6 +21,8 @@ def normalise_license(value: str | None) -> str | None:
     if not value:
         return None
     text = value.strip()
+    if text in _GBIF_NAMES:
+        return _GBIF_NAMES[text]
     lowered = text.lower()
     if "publicdomain/zero" in lowered or re.match(r"^\s*cc[\s-]*0", lowered):
         return "CC0"
