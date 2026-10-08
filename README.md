@@ -23,6 +23,8 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 - **"Where can I find species X?"** — Search for any marine species and see dive sites where it's been observed
 - **"What lives near dive site Y?"** — Browse dive sites on a map and discover which species are present
 
+The app on top of it is **Dive Diversity**.
+
 ![Screen Recording 2026-02-13 at 10 17 43 AM](https://github.com/user-attachments/assets/3b6efe2f-7d59-45c9-8dfc-155f0ab82318)
 
 
@@ -42,13 +44,15 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 
 **40% faster OBIS ingestion** — boto3 parallel download (16 workers) + DuckDB batch processing replaced single-threaded DuckDB httpfs. 78 min → 47 min for 162M rows.
 
-**Credited enrichment** — Common names, Wikipedia descriptions and images for every species near a dive site, with GBIF occurrence photos as a fallback; every image keeps its photographer and license. Progress is merged into BigQuery every 2,000 species.
+**Credited enrichment** — Common names, Wikipedia descriptions and images for every species near a dive site, with GBIF occurrence photos as a fallback; every image keeps its photographer and license. Progress is merged into BigQuery every 2,000 species. For a full backfill the fallback photos come from one GBIF bulk download instead of tens of thousands of throttled searches.
 
 **Parallel Cloud Run execution** — 5 ingest sources run simultaneously as separate Cloud Run job executions from the same container image.
 
 **Smart API fallback chain** — GBIF + Wikipedia run concurrently, then Wikidata as fallback for missing images. Rate limiting, exponential backoff, and jitter on all API calls.
 
-**Zero-cost app serving** — DuckDB in-memory on Parquet files, React frontend served as static files from FastAPI. Single container, no database server.
+**Only what a diver meets** — WoRMS lists seabirds, insects, fungi and shore plants as marine. They stay searchable, but site lists and counts leave them out (`is_above_water`).
+
+**Zero-cost app serving** — DuckDB in-memory on Parquet files, React frontend served as static files from FastAPI. Single container, no database server; it runs on Cloud Run or on any small server with Docker.
 
 ## Quick Start
 
@@ -82,9 +86,10 @@ docs/                Setup, testing, architecture, and workflow guides
 |--------|-------------|
 | `make setup` | One-time: authenticate, enable GCP APIs, build images, deploy infrastructure |
 | `make deploy` | Build images, push to Artifact Registry, run full pipeline |
-| `make export-data` | Rebuild enriched dbt models + export app tables to GCS |
-| `make app-build` | Build and push the UI app Docker image |
-| `make app-deploy` | Full app deployment: export data + build + deploy |
+| `make update-data` | Enrich, rebuild the coral models, export the app tables to GCS and download them |
+| `make app` | Run the app locally in Docker on the downloaded data |
+| `make app-deploy` | Build, push and deploy the app to Cloud Run |
+| `make server-deploy SERVER=user@host` | Ship the app image and data to your own server over ssh and start it |
 | `make help` | Show all targets |
 
 ## Development
@@ -97,6 +102,8 @@ uv run python -m ingest --source iucn       # ingest a single source
 cd dbt && uv run dbt run && cd ..            # build dbt models
 uv run python -m enrich --dry-run --limit 50 # look up 50 species, write nothing
 uv run python -m enrich                      # enrich new, unprocessed and due-for-retry species
+uv run python -m enrich --no-occurrence-photos  # full backfill: skip the throttled GBIF photo search...
+uv run python -m enrich.gbif_download           # ...and fill the missing photos from one GBIF download
 uv run python -m app.backend.main            # start app on http://localhost:8080
 ```
 

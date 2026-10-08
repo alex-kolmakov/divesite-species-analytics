@@ -89,3 +89,5 @@ docker logs -f marine-app
 The application will be available at [http://localhost:8080](http://localhost:8080).
 
 Alternatively, use `make app` which handles the build and run steps automatically.
+
+To put the same image and data on a server, see "Deploy on your own server" in [SETUP.md](SETUP.md#deploy-on-your-own-server).

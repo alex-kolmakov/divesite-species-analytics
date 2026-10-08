@@ -36,7 +36,7 @@ Validated, deduplicated, and unified datasets ready for analytics.
 | Model | Description |
 |-------|-------------|
 | `occurrences` | Presences from GBIF + OBIS (~493M), keyed by `occurrence_key`. Drops absences, OBIS QC rejects, fossil/living specimens, invalid or pre-`MIN_YEAR` dates, 0/0 coordinates, records less precise than `PROXIMITY_METERS`, and GBIF copies of OBIS records. Partitioned by `event_date` (month), clustered by `geography`. `analyses/occurrence_filter_counts.sql` counts each rule. |
-| `species` | Deduplicated species reference table with `iucn_category`, `is_endangered` (IUCN VU/EN/CR) and `is_invasive` (WRiMS: invasive somewhere) flags. |
+| `species` | Deduplicated species reference table with `iucn_category`, `is_endangered` (IUCN VU/EN/CR) and `is_invasive` (WRiMS: invasive somewhere) flags. Also `is_above_water`: birds, insects, arachnids, fungi and land plants other than seagrasses and pondweeds. WoRMS lists them as marine, but a diver does not meet them underwater. |
 
 ### Coral (Analytics)
 
@@ -47,10 +47,10 @@ Denormalized tables optimized for the application's two primary queries.
 | `near_dive_site_occurrences` | Spatial join: one row per (`occurrence_key`, `site_id`) within a configurable radius (`PROXIMITY_METERS`), with the distance. A sighting counts for every site in range, so occurrence totals come from `occurrences`, not from this table. The only coral model that reads `occurrences`. |
 | `monthly_species_occurrences` | Sightings per site, species and calendar month (`month_start`, `year`, `month` 1–12). Powers temporal trend charts. |
 | `divesite_species_frequency` | Per (`site_id`, species): records, distinct days seen (all time and last `RECENT_YEARS`), first/last seen, months seen, and `best_place_score` (days seen, each weighted by recency with a `BEST_PLACE_HALF_LIFE_YEARS` half-life). Ranks species per site and sites per species. |
-| `divesite_species` | App table: `divesite_species_frequency` plus the per-site invasive label. Narrow on purpose (no text). Answers "what lives at site Y" and "best places to see species X". |
+| `divesite_species` | App table: `divesite_species_frequency` plus the per-site invasive label. Narrow on purpose (no text). Answers "what lives at site Y" and "best places to see species X". Carries `is_above_water`; those species are ranked separately so they never take a place in a site's list. |
 | `species_summary` | App table: one row per species found at a site, with name, description, image, global IUCN category and how many sites it is at. LEFT JOINs `species_enrichment`. |
 | `divesite_invasive_species` | Species invasive at each dive site: WRiMS lists it as Invasive / Of concern in a sea area within 5 km. Invasiveness is per place. |
-| `divesite_summary` | One row per dive site with species counts and coordinates (~13,300 rows). Loaded entirely on app startup. |
+| `divesite_summary` | One row per dive site with species counts (without `is_above_water` species) and coordinates (~13,300 rows). Loaded entirely on app startup. |
 
 ### Core Column Schema
 
@@ -76,7 +76,7 @@ The `species_enrichment` table is a **dbt source** (not a model) — it is manag
 | `species` | STRING | Primary key, matches `species.species` |
 | `common_name` | STRING | GBIF vernacular names REST API |
 | `description` | STRING | Wikipedia REST API (first paragraph) |
-| `image_url` | STRING | Wikipedia / Wikimedia Commons (via Wikidata fallback) |
+| `image_url` | STRING | Wikipedia / Wikimedia Commons (via Wikidata fallback), else a GBIF occurrence photo |
 
 Convention: empty string `''` = "API tried, nothing found" vs `NULL` = "not yet attempted."
 
@@ -119,13 +119,15 @@ Species in `species_summary` (every species recorded near a dive site), most wid
 3. **Image:** the Wikipedia article's image, else Wikidata's (P18), both resolved through Wikimedia Commons for an 800 px thumbnail (JPEG/PNG even for SVG/TIFF), the artist and the license. Local en.wikipedia files (usually non-free) are skipped.
 4. **Image fallback:** a photo from a GBIF occurrence record, field observations (e.g. iNaturalist) before museum specimens.
 
+GBIF's occurrence search throttles long runs: after a few thousand photo lookups it answers 429 for hours. A full backfill therefore runs in two steps. `python -m enrich --no-occurrence-photos` does steps 1 to 3, then `python -m enrich.gbif_download` requests one GBIF download of all still-image records for the species that still have no image, picks a photo per species by the same rule, and fills only empty images. It needs `GBIF_USER` and `GBIF_PWD` (a free gbif.org account); the download is listed publicly under that account with a DOI. The run of 2026-10-08 asked for 35,292 taxa, got 371,887 records (0.22 GB) and filled 21,252 images.
+
 Only images under CC0/public domain, CC BY, CC BY-SA, CC BY-NC or CC BY-NC-SA are kept (`enrich/licenses.py`), always with `image_credit`, `image_license` and `image_page_url` so the app can credit them. NoDerivatives and unknown licenses are dropped.
 
 ### Running and failure handling
 
 - Results are merged into BigQuery every `ENRICH_FLUSH_SIZE` (2,000) species through a staging table, so a killed job loses at most one chunk. No local checkpoint.
-- A Wikipedia lookup that fails (rate limit, network) leaves the stored row untouched and its `attempted_at` NULL, so the next run retries it; a genuine miss is recorded as a miss.
-- `--new-only` (only species with no row), `--limit N`, `--dry-run` (look up, write nothing).
+- A Wikipedia or GBIF photo lookup that fails (rate limit, network) leaves the stored row untouched and its `attempted_at` NULL, so the next run retries it; a genuine miss is recorded as a miss.
+- `--new-only` (only species with no row), `--limit N`, `--dry-run` (look up, write nothing), `--no-occurrence-photos` (skip the GBIF photo fallback).
 - Each run ends with a coverage line for the species at dive sites.
 
 ---
@@ -136,7 +138,7 @@ The application is a **single-container deployment** with no external database s
 
 ```
 ┌─────────────────────────────────────┐
-│         Cloud Run Service           │
+│   Cloud Run Service or own server   │
 │                                     │
 │  ┌───────────────────────────────┐  │
 │  │  FastAPI (Python)             │  │
@@ -162,7 +164,11 @@ The application is a **single-container deployment** with no external database s
 1. **Startup**: FastAPI lifespan loads 3 Parquet files (exported from BigQuery) into DuckDB in-memory tables
 2. **API**: Two routers — species search and dive site explorer — query DuckDB directly
 3. **Frontend**: React app is pre-built and served as static files from the same FastAPI process
-4. **Data source**: In production, Parquet files are downloaded from GCS at startup. In local dev, files are mounted from disk.
+4. **Data source**: On Cloud Run, Parquet files are downloaded from GCS at startup (`GCS_BUCKET` set). Locally and on your own server, files are mounted from disk (`LOCAL_DATA_DIR`).
+
+Two ways to host it: Cloud Run (`make app-deploy`, scales to zero, so the first request after a pause waits for the tables to load) or one server with Docker (`make server-deploy`, see [SETUP.md](SETUP.md#deploy-on-your-own-server)). The container settles at about 370 MB of memory.
+
+Site lists and the default species list leave out `is_above_water` species; searching by name still finds them.
 
 ### Exported Tables
 

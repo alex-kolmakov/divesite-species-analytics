@@ -152,6 +152,17 @@ make app-deploy   # Export data to GCS + build + deploy FastAPI/React app to Clo
 
 The app URL will be printed when deployment completes.
 
+### Deploy on your own server
+
+The app also runs on any small server with Docker and the compose plugin (about 400 MB of free memory, 500 MB of disk). It reads the parquet files from disk there, so the server needs no Google credentials.
+
+```bash
+make update-data                           # fresh parquet in app/backend/data/
+make server-deploy SERVER=user@host        # SERVER_PLATFORM=linux/arm64 for ARM machines
+```
+
+This builds the image, sends it over ssh (no registry), syncs the three table folders, and starts the app from `deploy/docker-compose.yml` in `~/divesite-discovery`. The app listens on `127.0.0.1:8081` and on the Docker network `web`, which is how a reverse proxy on the same machine reaches it: `deploy/nginx.conf.example` is a server block for an nginx that already serves another site, `deploy/Caddyfile.example` the same for Caddy. Several sites share one IP this way; the proxy picks the site by hostname.
+
 ---
 
 ## Environment Variables
@@ -178,6 +189,8 @@ Copy `env.example` to `.env` and fill in your values. The `.env` file uses quote
 | `BASE_PADI_MAP_URL` | — | PADI dive map API base URL |
 | `WORMS_LOGIN` | `""` | WoRMS authenticated download login |
 | `WORMS_PASSWORD` | `""` | WoRMS authenticated download password |
+| `GBIF_USER` | — | gbif.org username or email, only for `python -m enrich.gbif_download` |
+| `GBIF_PWD` | — | gbif.org password, only for `python -m enrich.gbif_download` |
 
 ### Pipeline Tuning
 
