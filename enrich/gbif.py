@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import aiohttp
 
@@ -12,8 +12,12 @@ from enrich.wikipedia import UA
 
 logger = logging.getLogger(__name__)
 
-MAX_CONCURRENT = 20  # GBIF API is generous with rate limits
-MAX_RETRIES = 3
+MAX_CONCURRENT = 20  # the species endpoints are generous with rate limits
+# Occurrence search is not: it answers bursts with 429 (Retry-After: 3). Paced one at a time it
+# took 4 requests a second without a single 429 (measured 2026-10-07).
+OCCURRENCE_CONCURRENT = 4
+OCCURRENCE_INTERVAL = 0.25  # seconds between request starts
+MAX_RETRIES = 5
 INITIAL_BACKOFF = 2
 
 GBIF_API = "https://api.gbif.org/v1"
@@ -32,26 +36,57 @@ class OccurrenceImage:
     license_url: str | None
 
 
-async def _get_json(session: aiohttp.ClientSession, url: str, params: dict[str, Any]) -> dict[str, Any] | None:
-    """GET with backoff on 429 and network errors. None on any other failure."""
+class Pacer:
+    """Spaces out request starts, and holds every request back after the API says to slow down."""
+
+    def __init__(self, interval: float) -> None:
+        self.interval = interval
+        self.next_start = 0.0
+
+    async def wait(self) -> None:
+        now = asyncio.get_running_loop().time()
+        start = max(now, self.next_start)
+        self.next_start = start + self.interval
+        await asyncio.sleep(start - now)
+
+    def hold(self, seconds: float) -> None:
+        self.next_start = max(self.next_start, asyncio.get_running_loop().time() + seconds)
+
+
+async def _get_json(
+    session: aiohttp.ClientSession, url: str, params: dict[str, Any], pacer: Pacer | None = None
+) -> dict[str, Any] | None:
+    """GET with backoff on 429, 5xx, timeouts and network errors. None when the lookup failed."""
     backoff = INITIAL_BACKOFF
+    reason = "no attempt"
     for _attempt in range(MAX_RETRIES + 1):
+        if pacer:
+            await pacer.wait()
         try:
             async with session.get(url, params=params) as resp:
-                if resp.status == 429:
-                    await asyncio.sleep(backoff + random.uniform(0, 1))
+                if resp.status == 429 or resp.status >= 500:
+                    reason = f"status {resp.status}"
+                    retry_after = resp.headers.get("Retry-After", "")
+                    wait = max(backoff, int(retry_after)) if retry_after.isdigit() else backoff
+                    if pacer:
+                        pacer.hold(wait)  # everyone waits, not just this request
+                    else:
+                        await asyncio.sleep(wait + random.uniform(0, 1))
                     backoff *= 2
                     continue
                 if resp.status != 200:
-                    return None
+                    reason = f"status {resp.status}"
+                    break
                 data = await resp.json()
                 return data if isinstance(data, dict) else None
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, TimeoutError) as e:
+            reason = type(e).__name__
             await asyncio.sleep(backoff)
             backoff *= 2
         except Exception:
             logger.debug("GBIF error for %s %s", url, params, exc_info=True)
             return None
+    logger.debug("GBIF lookup failed (%s) for %s %s", reason, url, params)
     return None
 
 
@@ -129,18 +164,25 @@ def pick_occurrence_image(results: list[dict[str, Any]]) -> OccurrenceImage | No
     return None
 
 
-async def get_occurrence_images(usage_keys: dict[str, int]) -> dict[str, OccurrenceImage]:
-    """A photo per species from GBIF occurrence records: field observations first, then specimens."""
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+async def get_occurrence_images(usage_keys: dict[str, int]) -> tuple[dict[str, OccurrenceImage], set[str]]:
+    """A photo per species from GBIF occurrence records, and the species whose lookup failed.
 
-    async def one(session: aiohttp.ClientSession, key: int) -> OccurrenceImage | None:
+    Field observations first, then specimens. A species with no usable photo is in neither.
+    """
+    semaphore = asyncio.Semaphore(OCCURRENCE_CONCURRENT)
+    pacer = Pacer(OCCURRENCE_INTERVAL)
+
+    async def one(session: aiohttp.ClientSession, key: int) -> OccurrenceImage | None | Literal[False]:
+        """False when a lookup failed, None when GBIF has no usable photo."""
         for basis in ("HUMAN_OBSERVATION", None):
             params: dict[str, Any] = {"taxonKey": key, "mediaType": "StillImage", "limit": 20}
             if basis:
                 params["basisOfRecord"] = basis
             async with semaphore:
-                data = await _get_json(session, f"{GBIF_API}/occurrence/search", params)
-            image = pick_occurrence_image((data or {}).get("results", []))
+                data = await _get_json(session, f"{GBIF_API}/occurrence/search", params, pacer)
+            if data is None:
+                return False
+            image = pick_occurrence_image(data.get("results", []))
             if image:
                 return image
         return None
@@ -149,5 +191,6 @@ async def get_occurrence_images(usage_keys: dict[str, int]) -> dict[str, Occurre
     async with aiohttp.ClientSession(headers=HEADERS) as session:
         images = await asyncio.gather(*(one(session, usage_keys[s]) for s in species))
     found = {s: img for s, img in zip(species, images, strict=True) if img}
-    logger.info("GBIF: occurrence photos for %d/%d species", len(found), len(species))
-    return found
+    failed = {s for s, img in zip(species, images, strict=True) if img is False}
+    logger.info("GBIF: occurrence photos for %d/%d species (%d lookups failed)", len(found), len(species), len(failed))
+    return found, failed

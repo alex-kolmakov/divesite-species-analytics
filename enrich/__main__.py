@@ -199,8 +199,12 @@ async def enrich_batch(batch: list[WorkItem]) -> list[Result]:
         s: keys[s] for s, r in results.items() if r.refresh_text_and_image and not r.image_url and s in keys
     }
     if still_missing:
-        for species, image in (await get_occurrence_images(still_missing)).items():
+        images, occurrence_failed = await get_occurrence_images(still_missing)
+        for species, image in images.items():
             _set_image(results[species], image, "gbif_occurrence")
+        for species in occurrence_failed:
+            # Same as above: not "no photo", so don't record the species as tried
+            results[species].refresh_text_and_image, results[species].attempted_at = False, None
 
     return [results[w.species] for w in batch]
 

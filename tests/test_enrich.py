@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from enrich.__main__ import Result, WorkItem, enrich_batch, merge_query, work_list_query
 from enrich.commons import ImageInfo, parse_imageinfo, plain_text
-from enrich.gbif import OccurrenceImage, display_url, pick_occurrence_image
+from enrich.gbif import OccurrenceImage, Pacer, display_url, pick_occurrence_image
 from enrich.licenses import is_allowed, normalise_license
 from enrich.names import canonical_name, genus
 from enrich.wikidata import file_title_from_filepath
@@ -207,6 +207,22 @@ def test_merge_only_overwrites_refreshed_fields():
     assert "attempted_at = IF(s.refresh_text_and_image, s.attempted_at, t.attempted_at)" in q
 
 
+def test_pacer_spaces_requests_and_holds_everyone_after_a_slow_down():
+    async def run():
+        loop = asyncio.get_running_loop()
+        pacer = Pacer(0.02)
+        start = loop.time()
+        await asyncio.gather(*(pacer.wait() for _ in range(4)))
+        spaced = loop.time() - start
+        pacer.hold(0.1)
+        await pacer.wait()
+        return spaced, loop.time() - start
+
+    spaced, held = asyncio.run(run())
+    assert spaced >= 0.06  # four starts, 0.02 s apart
+    assert held >= spaced + 0.1
+
+
 # ─── a whole batch, every source patched ──────────────────────────────────────
 
 
@@ -220,6 +236,7 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
         WorkItem("Has wikidata", has_common_name=True),  # article without image, Wikidata has one
         WorkItem("Only occurrences", has_common_name=False),  # nothing on Wikipedia/Wikidata
         WorkItem("Wiki failed", has_common_name=False),  # Wikipedia rate-limited
+        WorkItem("Occurrences failed", has_common_name=True),  # no image elsewhere, GBIF rate-limited
     ]
 
     async def match(names):
@@ -243,10 +260,10 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
         return {"wp.jpg": _info("https://wp"), "wd.jpg": _info("https://wd")}, set()
 
     async def occurrences(keys):
-        assert set(keys) == {"Only occurrences"}
+        assert set(keys) == {"Only occurrences", "Occurrences failed"}
         return {
             "Only occurrences": OccurrenceImage("https://occ", "https://www.gbif.org/occurrence/1", "Ana", "CC0", None)
-        }
+        }, {"Occurrences failed"}
 
     with (
         patch("enrich.__main__.match_species", side_effect=match),
@@ -269,9 +286,10 @@ def test_batch_combines_sources_in_order_and_keeps_data_on_lookup_errors():
     assert (occ.image_source, occ.image_credit, occ.description) == ("gbif_occurrence", "Ana", None)
     assert occ.attempted_at is not None
 
-    failed = results["Wiki failed"]
-    assert failed.refresh_text_and_image is False  # keep what's stored
-    assert failed.attempted_at is None  # stays eligible for the next run
+    for species in ("Wiki failed", "Occurrences failed"):
+        failed = results[species]
+        assert failed.refresh_text_and_image is False  # keep what's stored
+        assert failed.attempted_at is None  # stays eligible for the next run
 
 
 def test_failed_commons_lookup_keeps_stored_image():
