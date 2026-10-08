@@ -10,7 +10,7 @@ function TopNav() {
       <div className="topnav__brand">
         <span className="topnav__logo">🤿</span>
         <span className="topnav__wordmark">
-          <span className="topnav__wordmark-accent">Marine</span> Species Explorer
+          <span className="topnav__wordmark-accent">Divesite</span> Discovery
         </span>
       </div>
       <div className="topnav__links">

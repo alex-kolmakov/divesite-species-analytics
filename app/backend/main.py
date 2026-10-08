@@ -1,4 +1,4 @@
-"""Marine Species Explorer — FastAPI application."""
+"""Divesite Discovery — FastAPI application."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -29,7 +29,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Marine Species Explorer",
+    title="Divesite Discovery",
     version="1.0.0",
     lifespan=lifespan,
 )
