@@ -1,0 +1,31 @@
+# Dive Diversity on a single server, behind a reverse proxy that is already there.
+# `make server-deploy SERVER=user@host` puts this file, the image and the data in place.
+#
+# The app only listens on localhost. The internet reaches it through the server's proxy, which
+# finds it as `divesite-discovery-app-1:8080` on the shared `web` network (see nginx.conf.example).
+
+services:
+  app:
+    image: divesite-discovery:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-8081}:8080"
+    environment:
+      LOCAL_DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data:ro
+    networks: [default, web]
+    # DuckDB peaks at ~360 MB loading the app tables, plus Python
+    mem_limit: 768m
+    cpus: 1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+networks:
+  # Shared with the proxy's compose project; `make server-deploy` creates it if it isn't there
+  web:
+    external: true

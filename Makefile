@@ -7,6 +7,9 @@
 # Cloud Deployment:
 #   make app-deploy   Build, push, deploy app to Cloud Run
 #   make app-destroy  Remove Cloud Run app (keeps all data)
+#
+# Own Server (instead of Cloud Run):
+#   make server-deploy SERVER=user@host   Ship image + data, start the app behind the server's proxy
 #   make teardown     Remove all GCP resources except data (BQ + GCS)
 #
 # Data Pipeline (Cloud Run):
@@ -46,6 +49,13 @@ APP_TABLES   := divesite_summary species_summary divesite_species
 LOCAL_DATA    := app/backend/data
 
 APP_IMAGE := $(REGISTRY)/app:latest
+
+# Own server: ssh target, where the app lives there, and the machine's architecture
+# (linux/arm64 for Hetzner's CAX machines)
+SERVER          ?=
+SERVER_DIR      ?= divesite-discovery
+SERVER_PLATFORM ?= linux/amd64
+SERVER_IMAGE    := divesite-discovery:latest
 
 ifdef DEV
   TF_DEV_FLAG := -var="development=true"
@@ -138,6 +148,24 @@ app-deploy: ## Build, push, deploy app to Cloud Run
 		--image $(APP_IMAGE)
 	@echo "✓ App deployed. URL:"
 	@gcloud run services describe $(APP_SERVICE) --region $(REGION) --format='value(status.url)'
+
+# ─── Own Server (App) ────────────────────────────────────────────────────────
+
+.PHONY: server-deploy
+server-deploy: ## Build the app, ship image + local parquet data to SERVER over ssh, start it
+	@test -n "$(SERVER)" || { echo "Set SERVER, e.g. make server-deploy SERVER=user@host"; exit 1; }
+	@for table in $(APP_TABLES); do \
+		ls $(LOCAL_DATA)/$$table/*.parquet > /dev/null 2>&1 || { echo "No data in $(LOCAL_DATA)/$$table — run make update-data"; exit 1; }; \
+	done
+	docker build --platform $(SERVER_PLATFORM) -t $(SERVER_IMAGE) .
+	ssh $(SERVER) 'mkdir -p $(SERVER_DIR)/data && (docker network inspect web > /dev/null 2>&1 || docker network create web)'
+	docker save $(SERVER_IMAGE) | gzip | ssh $(SERVER) 'gunzip | docker load'
+	@for table in $(APP_TABLES); do \
+		rsync -az --delete $(LOCAL_DATA)/$$table/ $(SERVER):$(SERVER_DIR)/data/$$table/; \
+	done
+	scp deploy/docker-compose.yml $(SERVER):$(SERVER_DIR)/docker-compose.yml
+	ssh $(SERVER) 'cd $(SERVER_DIR) && docker compose up -d --force-recreate'
+	@echo "✓ App running on $(SERVER), port 8081 on localhost. Point the proxy at it: deploy/nginx.conf.example"
 
 .PHONY: app-destroy
 app-destroy: ## Remove Cloud Run app (keeps all data)

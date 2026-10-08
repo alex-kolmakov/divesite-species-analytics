@@ -1,0 +1,11 @@
+# Two sites on one machine and one IP: the proxy picks the site by the hostname in the request.
+# Point both domains' DNS A records at the server; Caddy gets and renews the certificates itself.
+
+divesites.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8081
+}
+
+other-site.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
