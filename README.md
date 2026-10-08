@@ -1,8 +1,8 @@
 <div align="center">
 
-# Marine Species Analytics
+# Dive site Species Analytics
 
-**Where biodiversity data meets dive site discovery**
+**Biodiversity discovery of places you can actually dive in**
 
 [![CI](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/alex-kolmakov/divesite-species-analytics/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://python.org)
@@ -12,7 +12,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pyrefly](https://img.shields.io/badge/types-pyrefly-F7DC6F?logo=python&logoColor=white)](https://github.com/facebook/pyrefly)
 
-`162M+ ocean observations` · `7 scientific datasets` · `3,400+ dive sites` · `Full-stack app`
+`663M+ ocean observations` · `7 scientific datasets` · `3,400+ dive sites` · `Full-stack cloud app`
 
 </div>
 
@@ -31,7 +31,7 @@ A marine biodiversity data platform that combines multiple scientific datasets t
 | Source | Description | Records | Size | Ingestion |
 |--------|-------------|---------|------|-----------|
 | [OBIS](https://obis.org) | Ocean observations | ~203M | ~6.3GB | boto3 parallel (16 workers) from S3 |
-| [GBIF](https://gbif.org) | Biodiversity occurrences | Massive (sampled) | — | BigQuery public dataset |
+| [GBIF](https://gbif.org) | Biodiversity occurrences | ~3B | ~2TB | BigQuery public dataset |
 | [WoRMS](https://marinespecies.org) | Marine taxonomy | ~593K | ~90MB | DwCA zip (authenticated) |
 | [IUCN Red List](https://iucnredlist.org) | Threat category per species | ~311K | ~20MB | DwCA zip (iucn-latest) |
 | [PADI](https://padi.com) | Dive site locations | ~3,400 sites | <1MB | Paginated REST API |
@@ -62,7 +62,7 @@ cp env.example .env              # edit with your GCP project ID, bucket, URLs
 make setup && make deploy && make app-deploy
 ```
 
-For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`docs/SETUP.md`](docs/SETUP.md).
+For detailed GCP setup from scratch (service account creation, API enabling, Terraform config), see [`SETUP.md`](docs/SETUP.md).
 
 ## Project Structure
 
