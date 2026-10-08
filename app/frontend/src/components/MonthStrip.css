@@ -21,3 +21,13 @@
     background: rgba(6, 214, 160, .28);
     color: var(--accent);
 }
+
+.month-strip {
+    align-items: center;
+}
+
+.month-strip__label {
+    margin-right: 4px;
+    color: var(--text-muted);
+    font-size: .72rem;
+}
