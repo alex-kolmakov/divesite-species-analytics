@@ -202,7 +202,7 @@ models:
           - not_null
 
       - name: frequency_rank
-        description: Rank by sighting count among the species the site list shows (1 = most records); null for birds.
+        description: Rank by sighting count among the species the site list shows (1 = most records); null for species hidden from the list.
 
       - name: best_place_rank
         description: Rank of this site for this species by best_place_score (1 = best place to see it).
@@ -220,8 +220,8 @@ models:
         data_tests:
           - not_null
 
-      - name: is_bird
-        description: TRUE for class Aves. Birds are left out of site lists and site counts, not out of species pages.
+      - name: is_above_water
+        description: TRUE for birds, insects, spiders, fungi and land plants (see species). Left out of site lists and site counts, not out of species pages.
         data_tests:
           - not_null
 
@@ -237,7 +237,12 @@ models:
           - unique
 
       - name: taxon_class
-        description: WoRMS class (Actinopteri, Anthozoa, Aves, ...). Birds stay searchable here.
+        description: WoRMS class (Actinopteri, Anthozoa, Aves, ...).
+
+      - name: is_above_water
+        description: TRUE for species left out of site lists (see species). They stay searchable here.
+        data_tests:
+          - not_null
 
       - name: common_name
         description: English common name from GBIF (nullable).

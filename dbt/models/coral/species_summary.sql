@@ -7,6 +7,7 @@
 SELECT
     sp.species,
     sp.taxon_class,
+    sp.is_above_water,
     enrich.common_name,
     enrich.description,
     enrich.description_is_stub,

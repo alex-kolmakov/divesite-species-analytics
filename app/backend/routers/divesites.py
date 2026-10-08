@@ -58,10 +58,10 @@ def divesite_species(
 ) -> list[dict]:
     """Species observed at a dive site, with labels, counts and when they were seen.
 
-    Birds are left out: WoRMS lists seabirds as marine, but they aren't what a diver sees. They
-    still appear on their own species pages.
+    Birds, insects, fungi and land plants are left out: WoRMS lists them, but a diver doesn't
+    meet them underwater. They still appear on their own species pages.
     """
-    conditions = ["ds.site_id = ?", "NOT ds.is_bird"]
+    conditions = ["ds.site_id = ?", "NOT ds.is_above_water"]
     params: list[object] = [site_id]
     if type != "all":
         conditions.append(TYPE_FILTERS[type])

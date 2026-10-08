@@ -84,7 +84,14 @@ models:
               quote: false
 
       - name: taxon_class
-        description: WoRMS class of the species (accepted name's row first); Aves marks birds.
+        description: WoRMS class of the species (accepted name's row first).
+
+      - name: is_above_water
+        description: >
+          TRUE for what a diver doesn't meet underwater: birds, insects, spiders and mites, fungi,
+          and land plants other than seagrasses and pondweeds. A rule on taxonomy, not habitat.
+        data_tests:
+          - not_null
 
       - name: species_type
         description: >

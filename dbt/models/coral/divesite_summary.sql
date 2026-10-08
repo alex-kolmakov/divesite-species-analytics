@@ -30,6 +30,6 @@ LEFT JOIN (
         MAX(dsp.last_seen)                AS last_seen
     FROM {{ ref('divesite_species') }} AS dsp
     INNER JOIN {{ ref('species') }} AS sp ON dsp.species = sp.species
-    WHERE NOT dsp.is_bird
+    WHERE NOT dsp.is_above_water
     GROUP BY dsp.site_id
 ) AS agg ON ds.site_id = agg.site_id

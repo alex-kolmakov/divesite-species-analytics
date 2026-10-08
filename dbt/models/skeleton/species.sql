@@ -9,11 +9,27 @@ WITH unique_species AS (
 -- threatened categories (VU, EN, CR) count as endangered; the list also holds Least Concern.
 -- is_invasive means "invasive somewhere" (WRiMS): whether it is invasive at a given dive site is
 -- in divesite_invasive_species, since the same species can be native elsewhere.
+-- is_above_water marks what WoRMS lists but a diver doesn't meet underwater: birds, insects, spiders
+-- and mites, fungi and lichens, and land plants (shore grasses, rushes, mangroves). Seagrasses and
+-- pondweeds grow submerged and stay. These species are left out of site lists and counts, and keep
+-- their own species pages. It is a rule on taxonomy, not habitat: the WoRMS marine / freshwater /
+-- terrestrial flags aren't ingested.
 -- taxon_class comes from WoRMS (the accepted name's row first); it is how birds (Aves), which WoRMS
 -- lists as marine, are kept out of the per-site lists.
 SELECT
     spec.species,
     taxonomy.taxon_class,
+    COALESCE(
+        taxonomy.taxon_class IN ('Aves', 'Insecta', 'Arachnida')
+        OR taxonomy.kingdom = 'Fungi'
+        OR (
+            taxonomy.phylum IN ('Tracheophyta', 'Bryophyta')
+            AND COALESCE(taxonomy.family, '') NOT IN (
+                'Zosteraceae', 'Posidoniaceae', 'Cymodoceaceae', 'Hydrocharitaceae', 'Ruppiaceae', 'Potamogetonaceae'
+            )
+        ),
+        FALSE
+    ) AS is_above_water,
     redlist.threatStatus AS iucn_category,
     COALESCE(redlist.is_threatened, FALSE) AS is_endangered,
     invasive.species IS NOT NULL AS is_invasive,
@@ -41,7 +57,10 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT
         scientificName,
-        ARRAY_AGG(`class` IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS taxon_class
+        ARRAY_AGG(kingdom IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS kingdom,
+        ARRAY_AGG(phylum IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS phylum,
+        ARRAY_AGG(`class` IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS taxon_class,
+        ARRAY_AGG(family IGNORE NULLS ORDER BY taxonomicStatus = 'accepted' DESC LIMIT 1)[SAFE_OFFSET(0)] AS family
     FROM {{ source('marine_data', 'worms_table') }}
     GROUP BY scientificName
 ) AS taxonomy

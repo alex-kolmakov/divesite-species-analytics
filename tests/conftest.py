@@ -38,7 +38,7 @@ def test_client():
 
     conn.execute("""
         CREATE TABLE species_summary (
-            species VARCHAR, taxon_class VARCHAR, common_name VARCHAR, description VARCHAR,
+            species VARCHAR, taxon_class VARCHAR, is_above_water BOOLEAN, common_name VARCHAR, description VARCHAR,
             description_is_stub BOOLEAN, image_url VARCHAR, image_credit VARCHAR, image_license VARCHAR,
             image_license_url VARCHAR, image_page_url VARCHAR, image_source VARCHAR,
             iucn_category VARCHAR, is_endangered BOOLEAN, is_invasive BOOLEAN,
@@ -48,16 +48,17 @@ def test_client():
     """)
     conn.execute(
         "INSERT INTO species_summary VALUES"
-        " ('Pterois volitans', 'Teleostei', 'Red lionfish', 'Venomous reef fish', false,"
+        " ('Pterois volitans', 'Teleostei', false, 'Red lionfish', 'Venomous reef fish', false,"
         "  'https://upload.wikimedia.org/thumb/lionfish.jpg', 'Jens Petersen', 'CC BY 2.5',"
         "  'https://creativecommons.org/licenses/by/2.5', 'https://commons.wikimedia.org/wiki/File:Lionfish.jpg',"
         "  'wikipedia', 'least concern', false, true, 'invasive', 2, 1, 2, DATE '2025-06-01'),"
-        " ('Sphyrna lewini', 'Elasmobranchii', 'Scalloped hammerhead', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"
+        " ('Sphyrna lewini', 'Elasmobranchii', false, 'Scalloped hammerhead',"
+        "  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"
         "  'critically endangered', true, false, 'endangered', 1, 0, 1, DATE '2025-01-01'),"
-        " ('Chromis viridis', 'Teleostei', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"
+        " ('Chromis viridis', 'Teleostei', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"
         "  NULL, false, false, 'normal', 1, 0, 0, DATE '2010-01-01'),"
         # A seabird recorded at a dive site: searchable, but not on the site's list
-        " ('Pandion haliaetus', 'Aves', 'Osprey', 'A fish-eating bird of prey.', false,"
+        " ('Pandion haliaetus', 'Aves', true, 'Osprey', 'A fish-eating bird of prey.', false,"
         "  NULL, NULL, NULL, NULL, NULL, NULL, 'least concern', false, false, 'normal', 1, 0, 1, DATE '2025-05-01')"
     )
 
@@ -66,7 +67,7 @@ def test_client():
             site_id VARCHAR, species VARCHAR, sighting_count BIGINT, days_seen BIGINT,
             days_seen_recent BIGINT, first_seen DATE, last_seen DATE, months_seen BIGINT[],
             best_place_score DOUBLE, frequency_rank BIGINT, best_place_rank BIGINT,
-            invasiveness VARCHAR, is_invasive_here BOOLEAN, is_bird BOOLEAN
+            invasiveness VARCHAR, is_invasive_here BOOLEAN, is_above_water BOOLEAN
         )
     """)
     conn.execute(
