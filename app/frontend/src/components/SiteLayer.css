@@ -1,0 +1,18 @@
+.site-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(6, 214, 160, .22);
+    border: 1.5px solid rgba(6, 214, 160, .85);
+    color: #eafff8;
+    font-size: .7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    backdrop-filter: blur(2px);
+    transition: background .15s;
+}
+
+.site-cluster:hover {
+    background: rgba(6, 214, 160, .45);
+}
