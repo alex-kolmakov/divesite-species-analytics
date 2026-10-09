@@ -97,6 +97,8 @@ def init_db() -> None:
     _conn = duckdb.connect(":memory:")
     _conn.execute(f"SET memory_limit = '{MEMORY_LIMIT}'")
     _conn.execute(f"SET threads = {THREADS}")
+    # DuckDB spills next to the working directory by default, which a read-only container can't write
+    _conn.execute(f"SET temp_directory = '{tempfile.gettempdir()}/duckdb'")
     _conn.execute(f"ATTACH ':memory:' AS {CATALOG} (COMPRESS)")
     _conn.execute(f"USE {CATALOG}")
     logger.info("DuckDB initialised (compressed in-memory catalog %s)", CATALOG)

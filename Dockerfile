@@ -22,6 +22,9 @@ COPY app/backend/ ./backend/
 # Copy built frontend into static dir served by FastAPI
 COPY --from=frontend /build/dist/ ./static/
 
+# The server deploy runs the app as an unprivileged user: make everything readable to it
+RUN chmod -R a+rX /app
+
 # Cloud Run injects $PORT (default 8080)
 ENV PORT=8080
 EXPOSE 8080
