@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
+def resolve_static(static_dir: Path, requested: str) -> Path | None:
+    """The file inside static_dir that a request path names, or None.
+
+    The path comes straight from the URL: `..` segments and a leading `/` (which replaces the
+    base in a Path join) must not reach files outside static_dir.
+    """
+    candidate = (static_dir / requested).resolve()
+    if candidate.is_relative_to(static_dir.resolve()) and candidate.is_file():
+        return candidate
+    return None
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup: load Parquet → DuckDB.  Shutdown: close connection."""
@@ -52,8 +64,8 @@ if STATIC_DIR.is_dir():
     @app.get("/{full_path:path}")
     def spa_fallback(full_path: str) -> FileResponse:
         """Serve index.html for any non-API route (SPA client-side routing)."""
-        file_path = STATIC_DIR / full_path
-        if file_path.is_file():
+        file_path = resolve_static(STATIC_DIR, full_path)
+        if file_path:
             return FileResponse(file_path)
         return FileResponse(
             STATIC_DIR / "index.html",

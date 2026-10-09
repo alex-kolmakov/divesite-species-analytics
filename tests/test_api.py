@@ -1,3 +1,6 @@
+from app.backend.main import resolve_static
+
+
 def test_health(test_client):
     response = test_client.get("/api/health")
     assert response.status_code == 200
@@ -97,3 +100,17 @@ def test_species_list_without_a_search_term_leaves_birds_out(test_client):
     # A bird is still found by name
     found = test_client.get("/api/species/search?q=osprey").json()
     assert [s["species"] for s in found] == ["Pandion haliaetus"]
+
+
+def test_static_files_are_only_served_from_the_static_folder(tmp_path):
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "favicon.svg").write_text("icon")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret")
+
+    assert resolve_static(static, "favicon.svg") == static / "favicon.svg"
+    assert resolve_static(static, "species/42") is None  # a client-side route
+    assert resolve_static(static, "../secret.txt") is None
+    assert resolve_static(static, str(secret)) is None  # absolute: GET //tmp/…/secret.txt
+    assert resolve_static(static, "/etc/passwd") is None
