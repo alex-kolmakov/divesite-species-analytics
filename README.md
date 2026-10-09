@@ -89,7 +89,7 @@ docs/                Setup, testing, architecture, and workflow guides
 | `make update-data` | Enrich, rebuild the coral models, export the app tables to GCS and download them |
 | `make app` | Run the app locally in Docker on the downloaded data |
 | `make app-deploy` | Build, push and deploy the app to Cloud Run |
-| `make server-deploy SERVER=user@host` | Ship the app image and data to your own server over ssh and start it |
+| `make server-deploy SERVER=user@host` | Pull the repo on your own server, sync the data to it over ssh, rebuild and start the app |
 | `make help` | Show all targets |
 
 ## Development

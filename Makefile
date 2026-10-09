@@ -53,9 +53,8 @@ APP_IMAGE := $(REGISTRY)/app:latest
 # Own server: ssh target, where the app lives there, and the machine's architecture
 # (linux/arm64 for Hetzner's CAX machines)
 SERVER          ?=
-SERVER_DIR      ?= divesite-discovery
-SERVER_PLATFORM ?= linux/amd64
-SERVER_IMAGE    := divesite-discovery:latest
+SERVER_DIR      ?= /opt/divediversity
+SERVER_REPO     ?= https://github.com/alex-kolmakov/divesite-species-analytics.git
 
 ifdef DEV
   TF_DEV_FLAG := -var="development=true"
@@ -152,19 +151,17 @@ app-deploy: ## Build, push, deploy app to Cloud Run
 # ─── Own Server (App) ────────────────────────────────────────────────────────
 
 .PHONY: server-deploy
-server-deploy: ## Build the app, ship image + local parquet data to SERVER over ssh, start it
+server-deploy: ## Pull the repo on SERVER, sync local parquet data to it over ssh, rebuild and start the app
 	@test -n "$(SERVER)" || { echo "Set SERVER, e.g. make server-deploy SERVER=user@host"; exit 1; }
 	@for table in $(APP_TABLES); do \
 		ls $(LOCAL_DATA)/$$table/*.parquet > /dev/null 2>&1 || { echo "No data in $(LOCAL_DATA)/$$table — run make update-data"; exit 1; }; \
 	done
-	docker build --platform $(SERVER_PLATFORM) -t $(SERVER_IMAGE) .
-	ssh $(SERVER) 'mkdir -p $(SERVER_DIR)/data && (docker network inspect web > /dev/null 2>&1 || docker network create web)'
-	docker save $(SERVER_IMAGE) | gzip | ssh $(SERVER) 'gunzip | docker load'
+	ssh $(SERVER) 'if [ -d $(SERVER_DIR)/.git ]; then git -C $(SERVER_DIR) pull --ff-only; else git clone $(SERVER_REPO) $(SERVER_DIR); fi'
+	ssh $(SERVER) 'mkdir -p $(SERVER_DIR)/$(LOCAL_DATA) && (docker network inspect web > /dev/null 2>&1 || docker network create web)'
 	@for table in $(APP_TABLES); do \
-		rsync -az --delete $(LOCAL_DATA)/$$table/ $(SERVER):$(SERVER_DIR)/data/$$table/; \
+		rsync -az --delete $(LOCAL_DATA)/$$table/ $(SERVER):$(SERVER_DIR)/$(LOCAL_DATA)/$$table/; \
 	done
-	scp deploy/docker-compose.yml $(SERVER):$(SERVER_DIR)/docker-compose.yml
-	ssh $(SERVER) 'cd $(SERVER_DIR) && docker compose up -d --force-recreate'
+	ssh $(SERVER) 'cd $(SERVER_DIR) && docker compose -f deploy/docker-compose.yml up -d --build --force-recreate'
 	@echo "✓ App running on $(SERVER), port 8081 on localhost. Point the proxy at it: deploy/nginx.conf.example"
 
 .PHONY: app-destroy

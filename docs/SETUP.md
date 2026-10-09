@@ -158,10 +158,10 @@ The app also runs on any small server with Docker and the compose plugin (about 
 
 ```bash
 make update-data                           # fresh parquet in app/backend/data/
-make server-deploy SERVER=user@host        # SERVER_PLATFORM=linux/arm64 for ARM machines
+make server-deploy SERVER=user@host
 ```
 
-This builds the image, sends it over ssh (no registry), syncs the three table folders, and starts the app from `deploy/docker-compose.yml` in `~/divesite-discovery`. The app listens on `127.0.0.1:8081` and on the Docker network `web`, which is how a reverse proxy on the same machine reaches it: `deploy/nginx.conf.example` is a server block for an nginx that already serves another site, `deploy/Caddyfile.example` the same for Caddy. Several sites share one IP this way; the proxy picks the site by hostname.
+This clones the repo on the server into `/opt/divediversity` (or pulls it), syncs the three table folders, which are not in git, and builds and starts the app from `deploy/docker-compose.yml`. After a code change, `git pull && docker compose -f deploy/docker-compose.yml up -d --build` on the server is enough. The app listens on `127.0.0.1:8081` and on the Docker network `web`, which is how a reverse proxy on the same machine reaches it: `deploy/nginx.conf.example` is a server block for an nginx that already serves another site, `deploy/Caddyfile.example` the same for Caddy. Several sites share one IP this way; the proxy picks the site by hostname.
 
 ---
 

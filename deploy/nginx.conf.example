@@ -26,7 +26,7 @@ server {
 
     # Resolve the app's name per request, so nginx still starts while the app is down
     resolver 127.0.0.11 valid=30s;
-    set $divesite http://divesite-discovery-app-1:8080;
+    set $divesite http://divediversity-app-1:8080;
 
     location / {
         proxy_pass $divesite;
