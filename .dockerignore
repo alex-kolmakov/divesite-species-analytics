@@ -19,3 +19,4 @@ Makefile
 *.toml
 run.py
 app/backend/data/
+*.pem

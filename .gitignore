@@ -168,3 +168,6 @@ terraform/.terraform.lock.hcl
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfvars
+
+# TLS certificates and keys
+*.pem
