@@ -1,11 +1,11 @@
 """Dive Diversity — FastAPI application."""
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -16,6 +16,10 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(messa
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+# The tables are loaded once at startup, so an API answer stays the same until the next deploy.
+# An hour lets browsers (and Cloudflare, with a cache rule for /api/) skip the 5 MB dive site list.
+API_CACHE_CONTROL = "public, max-age=3600"
 
 
 def resolve_static(static_dir: Path, requested: str) -> Path | None:
@@ -45,6 +49,16 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def cache_api_answers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    response = await call_next(request)
+    path = request.url.path
+    if request.method == "GET" and response.status_code == 200 and path.startswith("/api/") and path != "/api/health":
+        response.headers["Cache-Control"] = API_CACHE_CONTROL
+    return response
+
 
 # --- API routers -------------------------------------------------------
 app.include_router(species.router)

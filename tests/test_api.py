@@ -114,3 +114,9 @@ def test_static_files_are_only_served_from_the_static_folder(tmp_path):
     assert resolve_static(static, "../secret.txt") is None
     assert resolve_static(static, str(secret)) is None  # absolute: GET //tmp/…/secret.txt
     assert resolve_static(static, "/etc/passwd") is None
+
+
+def test_api_answers_are_cacheable_except_errors_and_health(test_client):
+    assert test_client.get("/api/divesites").headers["cache-control"] == "public, max-age=3600"
+    assert "cache-control" not in test_client.get("/api/divesites/ssi:999").headers
+    assert "cache-control" not in test_client.get("/api/health").headers
