@@ -20,13 +20,13 @@ import argparse
 import asyncio
 import logging
 import sys
+import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
 import pandas as pd
 from google.api_core.exceptions import ServerError
-from google.api_core.retry import Retry, if_exception_type
 from google.auth.exceptions import TransportError
 from google.cloud import bigquery
 
@@ -43,8 +43,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# A merge holds up to ENRICH_FLUSH_SIZE species of lookups: ride out a network blip instead of losing them
-FLUSH_RETRY = Retry(predicate=if_exception_type(ConnectionError, TransportError, ServerError), deadline=600)
+# A merge holds up to ENRICH_FLUSH_SIZE species of lookups: ride out a network blip instead of losing
+# them. Google's token refresh has timed out mid-run twice, which the client's own retries don't cover.
+FLUSH_ATTEMPTS = 5
+FLUSH_RETRY_SECONDS = 30
 
 ENRICHMENT_SCHEMA = [
     bigquery.SchemaField("species", "STRING", mode="REQUIRED"),
@@ -297,11 +299,17 @@ def _flush(client: bigquery.Client, enrichment_table: str, results: list[Result]
     staging = f"{enrichment_table}_staging_{uuid.uuid4().hex[:8]}"
     df = pd.DataFrame([asdict(r) for r in results])
     job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", schema=ENRICHMENT_SCHEMA + STAGING_EXTRA)
-    try:
-        client.load_table_from_dataframe(df, staging, job_config=job_config).result(retry=FLUSH_RETRY)
-        client.query(merge_query(enrichment_table, staging), retry=FLUSH_RETRY).result()
-    finally:
-        client.delete_table(staging, not_found_ok=True)
+    for attempt in range(1, FLUSH_ATTEMPTS + 1):
+        try:
+            client.load_table_from_dataframe(df, staging, job_config=job_config).result()
+            client.query(merge_query(enrichment_table, staging)).result()
+            break
+        except (ConnectionError, TransportError, ServerError) as e:
+            if attempt == FLUSH_ATTEMPTS:
+                raise
+            logger.warning("Merge attempt %d failed (%s), trying again", attempt, type(e).__name__)
+            time.sleep(FLUSH_RETRY_SECONDS)
+    client.delete_table(staging, not_found_ok=True)
     logger.info("Merged %d species into %s", len(results), enrichment_table)
 
 
