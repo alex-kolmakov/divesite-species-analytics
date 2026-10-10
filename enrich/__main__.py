@@ -25,6 +25,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
 import pandas as pd
+from google.api_core.exceptions import ServerError
+from google.api_core.retry import Retry, if_exception_type
+from google.auth.exceptions import TransportError
 from google.cloud import bigquery
 
 from enrich.commons import ImageInfo, get_commons_images
@@ -39,6 +42,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# A merge holds up to ENRICH_FLUSH_SIZE species of lookups: ride out a network blip instead of losing them
+FLUSH_RETRY = Retry(predicate=if_exception_type(ConnectionError, TransportError, ServerError), deadline=600)
 
 ENRICHMENT_SCHEMA = [
     bigquery.SchemaField("species", "STRING", mode="REQUIRED"),
@@ -179,6 +185,10 @@ async def common_name_batch(species: list[str]) -> list[Result]:
     """Choose the common name of every species again; descriptions and images are left alone."""
     keys = await match_species(species)
     gbif_names, (pages, wiki_errors) = await asyncio.gather(get_common_names(keys), get_wikipedia_pages(species))
+    if wiki_errors:
+        # Mostly rate limits, which have passed by the time the rest of the batch is done
+        retried, wiki_errors = await get_wikipedia_pages(sorted(wiki_errors))
+        pages.update(retried)
     results = []
     for name in species:
         r = Result(species=name, refresh_text_and_image=False)
@@ -288,8 +298,8 @@ def _flush(client: bigquery.Client, enrichment_table: str, results: list[Result]
     df = pd.DataFrame([asdict(r) for r in results])
     job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", schema=ENRICHMENT_SCHEMA + STAGING_EXTRA)
     try:
-        client.load_table_from_dataframe(df, staging, job_config=job_config).result()
-        client.query(merge_query(enrichment_table, staging)).result()
+        client.load_table_from_dataframe(df, staging, job_config=job_config).result(retry=FLUSH_RETRY)
+        client.query(merge_query(enrichment_table, staging), retry=FLUSH_RETRY).result()
     finally:
         client.delete_table(staging, not_found_ok=True)
     logger.info("Merged %d species into %s", len(results), enrichment_table)
@@ -340,6 +350,7 @@ def main() -> int:
         action="store_true",
         help="Skip the GBIF occurrence photo fallback (its search API throttles long runs)",
     )
+    parser.add_argument("--skip", type=int, default=0, help="Skip the first N species, to resume a stopped run")
     parser.add_argument(
         "--common-names",
         action="store_true",
@@ -364,6 +375,7 @@ def main() -> int:
             len(work),
             "new only" if args.new_only else "new, unprocessed and due for retry",
         )
+    work = work[args.skip :]
     if not work:
         return 0
 
