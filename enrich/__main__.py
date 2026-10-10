@@ -1,7 +1,8 @@
 """Enrich the species the app shows with a common name, a description and a credited image.
 
 Sources, in order:
-- common name: GBIF vernacular names (English)
+- common name: the title of the species' Wikipedia article when that is a common name ("Whale
+  shark"), else the English name most GBIF checklists use
 - description: Wikipedia summary (genus pages and disambiguations rejected, one-line stubs flagged)
 - image: the Wikipedia article's image, else Wikidata's, both via Commons (thumbnail, artist,
   license); else a photo from a GBIF occurrence record (field observations first). Only licenses
@@ -10,6 +11,9 @@ Sources, in order:
 Work list: species in species_summary (most widespread first) with no enrichment row, rows never
 processed by this pipeline (attempted_at NULL), and rows with a missing field last tried more than
 ENRICH_RETRY_DAYS ago. Results are merged every ENRICH_FLUSH_SIZE species.
+
+    python -m enrich                 # the work list above
+    python -m enrich --common-names  # choose the common name again, nothing else
 """
 
 import argparse
@@ -27,7 +31,7 @@ from enrich.commons import ImageInfo, get_commons_images
 from enrich.config import EnrichConfig
 from enrich.gbif import OccurrenceImage, get_common_names, get_occurrence_images, match_species
 from enrich.wikidata import get_wikidata_files
-from enrich.wikipedia import get_wikipedia_pages
+from enrich.wikipedia import WikiPage, get_wikipedia_pages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -130,6 +134,21 @@ def work_list_query(
     """
 
 
+def common_name_work_list_query(target_table: str, enrichment_table: str, limit: int | None) -> str:
+    """Species whose common name can change: those with a name or a Wikipedia article.
+
+    The rest had no English name in GBIF and no article to take a title from.
+    """
+    return f"""
+        SELECT t.species
+        FROM `{target_table}` AS t
+        JOIN `{enrichment_table}` AS e ON t.species = e.species
+        WHERE e.common_name IS NOT NULL OR e.description IS NOT NULL
+        ORDER BY t.total_sites DESC, t.species
+        {f"LIMIT {int(limit)}" if limit else ""}
+    """
+
+
 def _fetch_work_list(
     client: bigquery.Client, config: EnrichConfig, *, new_only: bool, limit: int | None
 ) -> list[WorkItem]:
@@ -146,6 +165,28 @@ def _fetch_work_list(
     )
     df = client.query(query, job_config=job_config).to_dataframe()
     return [WorkItem(species=str(r.species), has_common_name=bool(r.has_common_name)) for r in df.itertuples()]
+
+
+def _set_common_name(result: Result, page: WikiPage | None, gbif_name: str | None) -> None:
+    result.refresh_common = True
+    if page and page.common_name:
+        result.common_name, result.common_name_source = page.common_name, "wikipedia"
+    elif gbif_name:
+        result.common_name, result.common_name_source = gbif_name, "gbif"
+
+
+async def common_name_batch(species: list[str]) -> list[Result]:
+    """Choose the common name of every species again; descriptions and images are left alone."""
+    keys = await match_species(species)
+    gbif_names, (pages, wiki_errors) = await asyncio.gather(get_common_names(keys), get_wikipedia_pages(species))
+    results = []
+    for name in species:
+        r = Result(species=name, refresh_text_and_image=False)
+        # Without Wikipedia's answer the choice can't be made: keep the stored name
+        if name not in wiki_errors:
+            _set_common_name(r, pages.get(name), gbif_names.get(name))
+        results.append(r)
+    return results
 
 
 def _set_image(result: Result, image: ImageInfo | OccurrenceImage, source: str) -> None:
@@ -175,11 +216,9 @@ async def enrich_batch(batch: list[WorkItem], *, occurrence_photos: bool = True)
     results: dict[str, Result] = {}
     for w in batch:
         r = Result(species=w.species, attempted_at=now)
-        if not w.has_common_name:
-            r.refresh_common = True
-            if w.species in common_names:
-                r.common_name, r.common_name_source = common_names[w.species], "gbif"
         page = pages.get(w.species)
+        if not w.has_common_name and w.species not in wiki_errors:
+            _set_common_name(r, page, common_names.get(w.species))
         wiki_file = page.file_title if page else None
         wikidata_file = wikidata_files.get(w.species)
         if w.species in wiki_errors or wiki_file in commons_failed or wikidata_file in commons_failed:
@@ -284,7 +323,8 @@ def summarize(results: list[Result]) -> dict[str, int]:
         "image_wikipedia": sum(1 for r in results if r.image_source == "wikipedia"),
         "image_wikidata": sum(1 for r in results if r.image_source == "wikidata"),
         "image_gbif_occurrence": sum(1 for r in results if r.image_source == "gbif_occurrence"),
-        "lookup_failed": sum(1 for r in results if not r.refresh_text_and_image),
+        "common_name_wikipedia": sum(1 for r in results if r.common_name_source == "wikipedia"),
+        "lookup_failed": sum(1 for r in results if not (r.refresh_text_and_image or r.refresh_common)),
     }
 
 
@@ -300,6 +340,11 @@ def main() -> int:
         action="store_true",
         help="Skip the GBIF occurrence photo fallback (its search API throttles long runs)",
     )
+    parser.add_argument(
+        "--common-names",
+        action="store_true",
+        help="Choose the common name again for species with a name or an article; nothing else changes",
+    )
     args = parser.parse_args()
 
     config = EnrichConfig.from_env()
@@ -307,10 +352,18 @@ def main() -> int:
     if not args.dry_run:
         _prepare_table(client, config.enrichment_table_id)
 
-    work = _fetch_work_list(client, config, new_only=args.new_only, limit=args.limit)
-    logger.info(
-        "Work list: %d species (%s)", len(work), "new only" if args.new_only else "new, unprocessed and due for retry"
-    )
+    if args.common_names:
+        query = common_name_work_list_query(config.target_species_table_id, config.enrichment_table_id, args.limit)
+        rows = client.query(query).result()
+        work = [WorkItem(species=str(r.species), has_common_name=False) for r in rows]
+        logger.info("Work list: %d species (common names only)", len(work))
+    else:
+        work = _fetch_work_list(client, config, new_only=args.new_only, limit=args.limit)
+        logger.info(
+            "Work list: %d species (%s)",
+            len(work),
+            "new only" if args.new_only else "new, unprocessed and due for retry",
+        )
     if not work:
         return 0
 
@@ -318,7 +371,10 @@ def main() -> int:
     totals: list[Result] = []
     for start in range(0, len(work), config.batch_size):
         batch = work[start : start + config.batch_size]
-        results = asyncio.run(enrich_batch(batch, occurrence_photos=not args.no_occurrence_photos))
+        if args.common_names:
+            results = asyncio.run(common_name_batch([w.species for w in batch]))
+        else:
+            results = asyncio.run(enrich_batch(batch, occurrence_photos=not args.no_occurrence_photos))
         pending.extend(results)
         totals.extend(results)
         logger.info("Batch %d-%d of %d: %s", start + 1, start + len(batch), len(work), summarize(results))

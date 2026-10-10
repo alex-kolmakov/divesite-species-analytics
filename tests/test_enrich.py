@@ -11,14 +11,14 @@ import zipfile
 from unittest.mock import patch
 
 import pytest
-from enrich.__main__ import Result, WorkItem, enrich_batch, merge_query, work_list_query
+from enrich.__main__ import Result, WorkItem, common_name_batch, enrich_batch, merge_query, work_list_query
 from enrich.commons import ImageInfo, parse_imageinfo, plain_text
-from enrich.gbif import OccurrenceImage, Pacer, display_url, pick_occurrence_image
+from enrich.gbif import OccurrenceImage, Pacer, display_url, pick_common_name, pick_occurrence_image
 from enrich.gbif_download import download_request, photo_merge_query, read_photos
 from enrich.licenses import is_allowed, normalise_license
 from enrich.names import canonical_name, genus
 from enrich.wikidata import file_title_from_filepath
-from enrich.wikipedia import WikiPage, commons_file_title, is_genus_page, is_stub
+from enrich.wikipedia import WikiPage, common_name_from_title, commons_file_title, is_genus_page, is_stub
 
 # ─── names ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +67,29 @@ def test_monotypic_genus_page_is_kept():
     assert not is_genus_page("Cryptodendrum adhaesivum", "Cryptodendrum", text)
     named = "Eusmilia is a genus of stony coral represented by the species Eusmilia fastigiata."
     assert not is_genus_page("Eusmilia fastigiata", "Eusmilia", named)
+
+
+def test_article_title_is_the_common_name_unless_it_is_a_scientific_name():
+    assert common_name_from_title(
+        "Rhincodon typus", "Whale shark", "Whale shark", "Largest living species of fish"
+    ) == ("Whale shark")
+    assert (
+        common_name_from_title("Pterois volitans", "Lionfish (fish)", "Lionfish (fish)", "Species of fish")
+        == "Lionfish"
+    )
+    italic = "<i>Chromodoris annae</i>"
+    assert common_name_from_title("Chromodoris annae", "Chromodoris annae", italic, "Species of gastropod") is None
+    # A synonym's article, titled with another scientific name
+    assert common_name_from_title("Manta alfredi", "Mobula alfredi", "<i>Mobula alfredi</i>", "Species of ray") is None
+
+
+def test_article_about_a_wider_group_gives_no_common_name():
+    assert common_name_from_title("Holothuria atra", "Sea cucumber", "Sea cucumber", "Class of echinoderms") is None
+    assert common_name_from_title("Pterois volitans", "Lionfish", "Lionfish", "Genus of venomous fish") is None
+    # No short description: the text naming the species is enough
+    text = "The osprey (Pandion haliaetus) is a fish-eating bird of prey."
+    assert common_name_from_title("Pandion haliaetus", "Osprey", "Osprey", "", text) == "Osprey"
+    assert common_name_from_title("Pandion haliaetus", "Osprey", "Osprey", "") is None
 
 
 def test_one_sentence_species_line_is_a_stub():
@@ -292,6 +315,52 @@ def test_photo_merge_never_replaces_an_image():
     assert "WHEN MATCHED AND t.image_url IS NULL THEN UPDATE SET" in q
     assert "image_source = 'gbif_occurrence'" in q
     assert "NOT MATCHED" not in q
+
+
+def test_common_name_is_the_one_most_gbif_checklists_use():
+    whale_shark = [
+        "Checkerboard Shark",
+        "East Indian basking shark",
+        "Tofu shark",
+        "Whale Shark",
+        "Whale shark",
+        "basking shark",
+    ]
+    assert pick_common_name(whale_shark) in ("Whale Shark", "Whale shark")
+    assert pick_common_name(["Buckelwal", "humpback whale", "Humpback Whale", "humpback whale"]) == "Humpback whale"
+    # Several names packed into one entry are not a name; a tie goes to the alphabetically first
+    assert pick_common_name(["Reef Manta Ray, Alfred manta, Inshore manta ray", "reef manta ray"]) == "Reef manta ray"
+    assert pick_common_name(["grey nurse shark", "sand tiger shark"]) == "Grey nurse shark"
+    assert pick_common_name([]) is None
+
+
+def test_refreshing_common_names_prefers_wikipedia_and_touches_nothing_else():
+    async def match(names):
+        return {n: i for i, n in enumerate(names)}
+
+    async def gbif(keys):
+        return {"Rhincodon typus": "Checkerboard shark", "Chromodoris annae": "Anna's chromodoris"}
+
+    async def wikipedia(names):
+        pages = {
+            "Rhincodon typus": WikiPage("The whale shark.", False, None, "Whale shark"),
+            "Chromodoris annae": WikiPage("A sea slug.", True, None),
+        }
+        return pages, {"Wiki failed"}
+
+    with (
+        patch("enrich.__main__.match_species", side_effect=match),
+        patch("enrich.__main__.get_common_names", side_effect=gbif),
+        patch("enrich.__main__.get_wikipedia_pages", side_effect=wikipedia),
+    ):
+        species = ["Rhincodon typus", "Chromodoris annae", "No name", "Wiki failed"]
+        shark, slug, nameless, failed = asyncio.run(common_name_batch(species))
+
+    assert (shark.common_name, shark.common_name_source) == ("Whale shark", "wikipedia")
+    assert (slug.common_name, slug.common_name_source) == ("Anna's chromodoris", "gbif")
+    assert (nameless.common_name, nameless.refresh_common) == (None, True)
+    assert failed.refresh_common is False  # keep the stored name
+    assert not any(r.refresh_text_and_image for r in (shark, slug, nameless, failed))
 
 
 # ─── a whole batch, every source patched ──────────────────────────────────────

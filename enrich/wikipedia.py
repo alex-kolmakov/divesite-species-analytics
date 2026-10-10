@@ -23,6 +23,9 @@ HEADERS = {
 }
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
+_DISAMBIGUATOR = re.compile(r"\s*\([^)]*\)$")
+_SPECIES = re.compile(r"\bspecies\b", re.IGNORECASE)
+_WIDER_GROUP = re.compile(r"\b(?:subgenus|genus|genera|tribe|subfamily|family|order|class|group)\b", re.IGNORECASE)
 _STUB = re.compile(r"\bis an? (?:extinct )?(?:species|subspecies) of\b", re.IGNORECASE)
 
 
@@ -36,6 +39,8 @@ class WikiPage:
     is_stub: bool
     # Commons file name ("Pterois volitans Manado-e edit.jpg"); credit and thumbnail come from Commons
     file_title: str | None
+    # The article's title when it is the species' common name ("Whale shark")
+    common_name: str | None = None
 
 
 def is_genus_page(species: str, canonical_title: str, extract: str = "") -> bool:
@@ -52,6 +57,27 @@ def is_genus_page(species: str, canonical_title: str, extract: str = "") -> bool
         return False
     text = extract.lower()
     return "monotypic" not in text and canonical_name(species).lower() not in text
+
+
+def common_name_from_title(
+    species: str, title: str, display_title: str, short_description: str, extract: str = ""
+) -> str | None:
+    """The article title, when the article is filed under the species' common name.
+
+    Wikipedia names an article after the name most people use ("Rhincodon typus" redirects to
+    "Whale shark") and sets scientific names in italics, so an italic title is not a common name.
+    The article has to be about one species: its short description says so ("Species of fish";
+    "Class of echinoderms" for a redirect to the wider group "Sea cucumber"), or its text names
+    the species.
+    """
+    name = _DISAMBIGUATOR.sub("", title).strip()
+    canonical = canonical_name(species).lower()
+    if not name or "<i>" in display_title.lower() or name.lower() in (canonical, genus(species).lower()):
+        return None
+    about_one_species = bool(_SPECIES.search(short_description)) and not _WIDER_GROUP.search(short_description)
+    if not about_one_species and canonical not in extract.lower():
+        return None
+    return name
 
 
 def is_stub(description: str) -> bool:
@@ -111,15 +137,23 @@ async def _get_page(
 
                 if data.get("type") == "disambiguation":
                     return None
-                if is_genus_page(species, data.get("titles", {}).get("canonical", ""), data.get("extract") or ""):
+                extract = data.get("extract") or ""
+                if is_genus_page(species, data.get("titles", {}).get("canonical", ""), extract):
                     return None
 
-                description = data.get("extract") or None
+                description = extract or None
                 image = (data.get("originalimage") or data.get("thumbnail") or {}).get("source")
                 return WikiPage(
                     description=description,
                     is_stub=bool(description) and is_stub(description),
                     file_title=commons_file_title(image),
+                    common_name=common_name_from_title(
+                        species,
+                        data.get("title") or "",
+                        data.get("displaytitle") or "",
+                        data.get("description") or "",
+                        extract,
+                    ),
                 )
 
             except aiohttp.ClientError:

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -108,15 +109,36 @@ async def match_species(species_names: list[str]) -> dict[str, int]:
     return found
 
 
+def pick_common_name(names: list[str]) -> str | None:
+    """The English name most of GBIF's checklists agree on, or None.
+
+    GBIF lists every name any checklist gives a species, unranked: the whale shark's are
+    "Checkerboard Shark", "East Indian basking shark", "Tofu shark", "Whale Shark", "Whale shark"
+    and "basking shark". The name most sources use (ignoring case) is the common one; ties go to
+    the alphabetically first. Entries that pack several names into one string are skipped.
+    """
+    spellings: dict[str, Counter[str]] = defaultdict(Counter)
+    for raw in names:
+        name = " ".join(raw.split())
+        if name and not any(c in name for c in ",;/("):
+            spellings[name.lower()][name] += 1
+    if not spellings:
+        return None
+    winner = min(spellings, key=lambda k: (-sum(spellings[k].values()), k))
+    spelling = min(spellings[winner], key=lambda s: (-spellings[winner][s], s))
+    return spelling[0].upper() + spelling[1:]
+
+
 async def get_common_names(usage_keys: dict[str, int]) -> dict[str, str]:
     """English common name per species from GBIF vernacular names."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 
     async def one(session: aiohttp.ClientSession, key: int) -> str | None:
         async with semaphore:
-            data = await _get_json(session, f"{GBIF_API}/species/{key}/vernacularNames", {"limit": 100})
-        names = [r["vernacularName"] for r in (data or {}).get("results", []) if r.get("language") == "eng"]
-        return names[0] if names else None
+            data = await _get_json(session, f"{GBIF_API}/species/{key}/vernacularNames", {"limit": 1000})
+        return pick_common_name(
+            [r["vernacularName"] for r in (data or {}).get("results", []) if r.get("language") == "eng"]
+        )
 
     species = list(usage_keys)
     async with aiohttp.ClientSession(headers=HEADERS) as session:
