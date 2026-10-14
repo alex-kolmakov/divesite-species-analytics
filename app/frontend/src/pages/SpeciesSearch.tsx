@@ -24,6 +24,10 @@ const searchSpecies = (q: string) => api.searchSpecies(q, 'all');
 // 1 sighting → 3.5 px, 1,000 → 8 px: a busy site stands out without burying its neighbours
 const markerRadius = (sightings: number) => Math.min(9, 3 + Math.log10(sightings + 1) * 1.7);
 
+// Opening the site on a bare `/` lands on the whale shark; later visits to `/` show the list
+const DEFAULT_SPECIES = 'Rhincodon typus';
+let landedOnDefault = false;
+
 /** `/` is the search; `/species/:name` shows one species and where to see it. `?q=` keeps the search. */
 export default function SpeciesSearch() {
     const { name } = useParams();
@@ -31,6 +35,12 @@ export default function SpeciesSearch() {
     const [params] = useSearchParams();
     const [query, setQuery] = useState(params.get('q') ?? '');
     const [showHeatmap, setShowHeatmap] = useState(false);
+
+    useEffect(() => {
+        if (landedOnDefault) return;
+        landedOnDefault = true;
+        if (!name && !params.get('q')) navigate(speciesPath(DEFAULT_SPECIES), { replace: true });
+    }, [name, params, navigate]);
 
     // Under two letters the list is the most widely seen species
     const term = useDebounced(query.trim().length >= 2 ? query.trim() : '', 300);
