@@ -92,6 +92,27 @@
   background: rgba(6, 214, 160, .1);
 }
 
+/* ─── Source / attribution link ─── */
+.topnav__github {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  text-decoration: none;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+
+.topnav__github:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ─── Main content ─── */
 .main {
   flex: 1;
@@ -116,5 +137,14 @@
   .nav-link {
     padding: 6px 10px;
     white-space: nowrap;
+  }
+
+  .topnav__github {
+    padding: 6px;
+    border: none;
+  }
+
+  .topnav__github span {
+    display: none;
   }
 }
